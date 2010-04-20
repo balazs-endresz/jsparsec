@@ -1,7 +1,7 @@
 /*! 
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 0.0.1
+ * Version: 0.0.2
  * 
  * http://code.google.com/p/jsparsec/
  * 
@@ -764,16 +764,18 @@ var operators = {
 
 // -- see usage in Char
 
-function splice_args(args, i){
+function splice_args(args, i, rec){
 	var op = operators[args[i]].func;
 	var	item = op(args[i-1], args[i+1]);
 	args.splice(i-1, 3 , item);
-	return resolve(args);
+	return resolve(args, rec);
 }
 
 //TODO: reject multiple infix operators in the same expression
-function resolve(args){
+function resolve(args, rec){
 	args = map(function(e){ return isArray(e) ? resolve(e) : e }, args);
+	if(rec)
+		args = map(function(e){return e instanceof Recurse ? rec : e}, args);
 
 	var fna = [], fn, newfna = [], i = 0, l = args.length;
 	for(; i < l; ++i){
@@ -801,14 +803,49 @@ function resolve(args){
 		maxfst = indexOf(strn, max),
 		maxlst = lastIndexOf(strn, max);
 	
-	return  dir[maxfst] == "l" ? splice_args(args, maxfst) :
-			dir[maxlst] == "r" ? splice_args(args, maxlst) :
-			dir[maxfst] == "x" ? splice_args(args, maxfst) :
+	return  dir[maxfst] == "l" ? splice_args(args, maxfst, rec) :
+			dir[maxlst] == "r" ? splice_args(args, maxlst, rec) :
+			dir[maxfst] == "x" ? splice_args(args, maxfst, rec) :
 			args[0];
 }
 
 Array.prototype.resolve = function(){ return resolve(this) };
 
+// -------------------------------------------------
+// Callstream interface for the do notation
+// -------------------------------------------------
+
+function Recurse(){}
+
+var recurse = new Recurse();
+
+function cs(){
+	return (function(args){
+		function rec(s){return p(s)}
+
+		var lines = [], p, resolved;
+		lines.push(resolve(args, rec));
+
+		function line(s){
+			if(s instanceof ParseState)
+				return (resolved ? p : line.resolve())(s);
+				
+			lines.push(resolve(arguments, rec));
+			return line;
+		}
+
+		line.resolve = function(){
+			if(resolved)
+				return p;
+			p = do_.apply(null, lines);
+			lines = null;
+			resolved = true;
+			return p;
+		}
+
+		return line;
+	})(arguments);
+}
 
 
 
@@ -1000,3 +1037,4 @@ var anyChar = [satisfy, const_(true)].resolve();
 //string s            = tokens show updatePosString s
 
 // -- defined in Prim
+
