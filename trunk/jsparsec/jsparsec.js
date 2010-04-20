@@ -19,31 +19,6 @@
  * 
  */
 
-
-/* available functions (currently these are all subject to change):
-
-const_, curry, extend, flip, call, foldl, foldr, id, isArray, isDefined, isType, map, filter
-
-ParseState, toParser, ps
-
-action, fmap, apliftA, liftA2, liftA3, pure, parserBind
-
-do_, bind, ret, run
-
-tokens, choice, try_, skipMany, optional, satisfy, string, char_, many, many1, label
-range, match, end
-
-infix, infixl, infixr, operators, resolve, Array.prototype.resolve
-
-alphaNum, anyChar, digit, hexDigit, label, letter, lower,
-newline, noneOf, octDigit, oneOf, space, spaces, tab, upper
-
-elemString, isAlpha, isAlphaNum, isDigit, isHexDigit, isLower, isOctDigit, isSpace, isUpper
-
-*/
-
-
-
 var undef,
 	_toString = {}.toString,
 	_slice    = [].slice;
@@ -309,7 +284,7 @@ function fail(state, expecting){
 }
 
 // 'end' is a parser that is successful if the input string is empty (i.e. end of parse).
-function end(state){
+function eof(state){
     return make_result(state, "", undef, state.length === 0);
 }
 
@@ -422,10 +397,14 @@ function ret(name){ return function(state, bindings){
 }}
 
 //in contrast with Haskell here's no closure in the do_ notation,
-//it's simulated with `bind` and `ret`
-function pure(value){ return function(state, bindings){
+//it's simulated with `bind` and `ret`,
+//this function does what `pure` and `return` do in Haskell
+function parserReturn(value){ return function(state, bindings){
 	return make_result(state, "", value);
 }}
+
+var return_ = parserReturn;
+var pure = return_;
 
 //executes two parsers in a sequence 
 //and applies the ast of the first to the ast of the second
@@ -444,7 +423,8 @@ var action = makeAction(function(state, p, f){
 		return result;
 	});
 
-var fmap = flip(action);
+var parsecMap = flip(action);
+var fmap = parsecMap;
 var liftA = fmap;
 var liftA2 = function(f, a, b){ return ap(fmap(f, a), b) };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
@@ -463,11 +443,11 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 
-// 'choice' is a parser combinator that provides a choice between other parsers.
+// 'parserPlus' is a parser combinator that provides a choice between other parsers.
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var choice = makeNP(function(state, parsers){
+var parserPlus = makeNP(function(state, parsers){
 		var i = 0, l = parsers.length, result, match, errors = [];
 		for(; i < l; ++i){
 			match = (result = parsers[i](state)).matched;
@@ -484,6 +464,7 @@ var choice = makeNP(function(state, parsers){
 		return result;
 	});
 
+var mplus = parserPlus;
 
 
 var try_ = make1P(function(state, p){
@@ -743,7 +724,7 @@ var operators = {
 		//,type:	[Function, Function, Function]
 	},
 	"<|>": {
-		func:	choice,
+		func:	parserPlus,
 		fixity: infixr(1)
 		//,type:	[Parser, Parser, Parser]
 	},
