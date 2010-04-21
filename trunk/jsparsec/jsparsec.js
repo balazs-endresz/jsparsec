@@ -885,9 +885,10 @@ function cs(){
 // Char
 // -------------------------------------------------
 
-function elemString(x, xs){
-	return !!xs.match(x);
+function elem(x, xs){
+	return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
 }
+
 function isSpace(c){
 	return /\s/.test(c);
 }
@@ -927,7 +928,7 @@ function isOctDigit(c){
 //oneOf cs            = satisfy (\c -> elem c cs)
 
 var oneOf = function(cs){
-	return satisfy(function(c){ return elemString(c, cs) });
+	return satisfy(function(c){ return elem(c, cs) });
 };
 
 // | As the dual of 'oneOf', @noneOf cs@ succeeds if the current
@@ -940,7 +941,7 @@ var oneOf = function(cs){
 //noneOf cs           = satisfy (\c -> not (elem c cs))
 
 var noneOf = function(cs){
-	return satisfy(function(c){ return !elemString(c, cs) });
+	return satisfy(function(c){ return !elem(c, cs) });
 };
 
 
