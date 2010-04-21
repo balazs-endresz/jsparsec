@@ -137,6 +137,14 @@ function flip(fn) {
     return function(a, b){ return fn(b, a) };
 }
 
+function cons(x, xs){
+	if(typeof x == "string" && typeof xs == "string")
+		return x+xs;
+
+	xs.unshift(x);
+
+	return xs;
+}
 
 
 // -------------------------------------------------
@@ -279,9 +287,26 @@ function make_result(remaining, matched, ast, success, expecting){
 				success: success, expecting: expecting };
 }
 
-function fail(state, expecting){
+function _fail(state, expecting){
 	return make_result(state, "", undef, false, expecting);
 }
+
+
+
+function parserFail(msg){ return function(state){
+	return make_result(state, "", undef, false, msg);
+}};
+
+var fail = parserFail;
+
+
+function parserZero(state){
+	return make_result(state, "", undef, false);
+}
+
+var mzero = parserZero;
+var empty = mzero;
+
 
 // 'end' is a parser that is successful if the input string is empty (i.e. end of parse).
 function eof(state){
@@ -383,18 +408,39 @@ function bind(name, p){ return function(state, bindings){
 }};
 
 //returns the value of an identifier or applies the passed function to the bindings
-//replaces the existing ast
-function ret(name){ return function(state, bindings){
-	var ast;
-	if(typeof name == "string"){
-		if(!(name in bindings))
-			throw 'Not in scope: "' + name + '"';
-		ast = bindings[name];
-	}else
-		ast = name(bindings);
-	
-	return make_result(state, "", ast);
-}}
+function ret(name, more){
+	var args;
+	if(more) 
+		args = slice(arguments);
+
+	return function(state, bindings){
+		var ast, type = typeof name;
+		//if(args){
+		//	ast =  resolve(resolveBindings(args, bindings));
+		//}else 
+		if(type == "string"){
+			if(!(name in bindings))
+				throw 'Not in scope: "' + name + '"';
+			ast = bindings[name];		
+		}else
+			ast = name(bindings);
+
+		return make_result(state, "", ast);
+	}
+}
+
+function resolveBindings(arr, bindings){
+	return isArray(arr) ?
+		map(function(e){ return (e in bindings) ? bindings[e] : resolveBindings(e) }, arr)
+		: arr;
+}
+
+function withBound(fn, a, b){
+	var args = slice(arguments, 1)
+	return function(bindings){
+		return fn.apply(null, map(function(e){ return bindings[e]}, args));
+	}
+}
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
@@ -448,19 +494,20 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
 var parserPlus = makeNP(function(state, parsers){
-		var i = 0, l = parsers.length, result, match, errors = [];
+		var i = 0, l = parsers.length, result, ast, errors = [];
 		for(; i < l; ++i){
-			match = (result = parsers[i](state)).matched;
-			if(!result.success || (!match) || !(match && match.length))
-				errors.push(result.expecting);
-			if(match && match.length)
+			ast = (result = parsers[i](state)).ast;
+			if(ast !== undefined)
 				break;
+			else
+				errors.push(result.expecting);
 		}
 		result = extend({}, result);
 		result.success = (i != l);
 		if(!result.success)
 			result.expecting = errors;
-		else delete result.expecting;
+		else
+			delete result.expecting;
 		return result;
 	});
 
@@ -477,7 +524,7 @@ var try_ = make1P(function(state, p){
 		
 		state.index = prevIndex;
 		state.length = prevLength;
-		return fail(state, result.expecting);
+		return _fail(state, result.expecting);
 
 	});
 
@@ -520,7 +567,7 @@ function _many(onePlusMatch){
 			result = p(state);
 
 		if(onePlusMatch && !result.success) 
-			return fail(state);
+			return _fail(state);
 		
 		while(result.success) {
 			if(result.ast !== undef)
@@ -559,13 +606,13 @@ var satisfy = make(function(state, cond){
 		var fstchar = state.at(0);
 		return (state.length > 0 && cond(fstchar)) ?
 			make_result(state.forward(1), fstchar, fstchar) : 
-			fail(state, fstchar);
+			_fail(state, fstchar);
 	});
 
 var char_ = make(function(state, c){
 		return (state.length > 0 && state.at(0) == c) ?
 			make_result(state.forward(1), c, c) : 
-			fail(state, c);
+			_fail(state, c);
 	});
 
 var string = make(function(state, s){
@@ -586,13 +633,13 @@ var string = make(function(state, s){
 // range of the 'lower' and 'upper' bounds ("a" to "z" for example).
 var range = make(function(state, lower, upper){
 		if(state.length < 1) 
-			return fail(state);
+			return _fail(state);
 
 		var ch = state.at(0);
 		if(ch >= lower && ch <= upper) 
 			return make_result(state.forward(1), ch, ch);
 
-		return fail(state, "[" + lower +"-"+ upper + "]");
+		return _fail(state, "[" + lower +"-"+ upper + "]");
 	});
 
 
@@ -623,7 +670,7 @@ var label = make1P(function(state, p, str){
 var match = make(function(state, sr){
 		if(typeof sr == "string")
 			return (state.substring(0, sr.length) == sr) ?
-				make_result(state.forward(sr.length), sr, sr) : fail(state, sr);
+				make_result(state.forward(sr.length), sr, sr) : _fail(state, sr);
 		if(sr.exec){
 			sr = new RegExp("^" + sr.source);
 			var substr = state.substring(0);
@@ -631,7 +678,7 @@ var match = make(function(state, sr){
 			match = match && match[0];
 			var length = match && match.length;
 			var matched = substr.substr(0, length);
-			return length ? make_result(state.forward(length), matched, matched) : fail(state, sr.source.substr(1));
+			return length ? make_result(state.forward(length), matched, matched) : _fail(state, sr.source.substr(1));
 		}
 	});
 
@@ -713,6 +760,16 @@ var operators = {
 		fixity: infixl(4)
 		//,type:	["*", Parser, Parser]
 	},
+	"<|>": {
+		func:	parserPlus,
+		fixity: infixr(1)
+		//,type:	[Parser, Parser, Parser]
+	},
+	"<?>": {
+		func:	label,
+		fixity: infix(0)
+		//,type:	[Parser, String, Parser]
+	},
 	"$" : {
 		func:	call,
 		fixity: infixr(0)
@@ -723,15 +780,9 @@ var operators = {
 		fixity: infixr(9)
 		//,type:	[Function, Function, Function]
 	},
-	"<|>": {
-		func:	parserPlus,
-		fixity: infixr(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<?>": {
-		func:	label,
-		fixity: infix(0)
-		//,type:	[Parser, String, Parser]
+	":" : {
+		func:	cons,
+		fixity: infixr(5)
 	}
 	
 };
@@ -835,7 +886,7 @@ function cs(){
 // -------------------------------------------------
 
 function elemString(x, xs){
-	return xs.match(x);
+	return !!xs.match(x);
 }
 function isSpace(c){
 	return /\s/.test(c);
