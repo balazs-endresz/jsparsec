@@ -197,7 +197,7 @@ ParseState.prototype = {
 		return this;
 	},
 
-	forward: function(index) {
+	scroll: function(index) {
 		this.index  += index;
 		this.length -= index;
 		return this;
@@ -263,11 +263,6 @@ ParseState.prototype = {
 	}
 
 	/*
-	,rewind: function(index) {
-		this.index  -= index;
-		this.length += index;
-		return this;
-	}
 
 	//returns a new state object
 	,from: function(index) {
@@ -279,7 +274,7 @@ ParseState.prototype = {
 
 	,skipWhitespace: function(){
 		var m = this.substring(0).match(/^\s+/);
-		return m ? this.forward(m[0].length) : this;
+		return m ? this.scroll(m[0].length) : this;
 	}
 
 	*/
@@ -380,7 +375,7 @@ function _make(fn, show, p1, p2, pN, action){
 
 			return result;
 		}
-		ret.show = show;
+		//ret.show = show;
 		return ret;
 	}
 }
@@ -467,6 +462,16 @@ function withBound(fn){
 		return fn.apply(null, map(function(e){ return bindings[e] }, args));
 	}
 }
+
+
+function getParserState(state){
+	return make_result(state, "", state.index);
+}
+
+function setParserState(id){ return function(state, bindings){
+	state.scrollTo(bindings[id]);
+	return make_result(state, "", undef);
+}}
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
@@ -631,13 +636,13 @@ var skipMany = make1P(function(state, p){
 var satisfy = make(function(state, cond){
 		var fstchar = state.at(0);
 		return (state.length > 0 && cond(fstchar)) ?
-			make_result(state.forward(1), fstchar, fstchar) : 
+			make_result(state.scroll(1), fstchar, fstchar) : 
 			_fail(state, fstchar);
 	});
 
 var char_ = make(function(state, c){
 		return (state.length > 0 && state.at(0) == c) ?
-			make_result(state.forward(1), c, c) : 
+			make_result(state.scroll(1), c, c) : 
 			_fail(state, c);
 	});
 
@@ -663,13 +668,13 @@ var range = make(function(state, lower, upper){
 
 		var ch = state.at(0);
 		if(ch >= lower && ch <= upper) 
-			return make_result(state.forward(1), ch, ch);
+			return make_result(state.scroll(1), ch, ch);
 
 		return _fail(state, "[" + lower +"-"+ upper + "]");
 	});
 
 
-var optional = make1P(function(state, p){
+var optional_old = make1P(function(state, p){
 		var result = p(state);
 		if(!result.success && !result.matched.length){
 			result = extend({}, result);
@@ -696,7 +701,7 @@ var label = make1P(function(state, p, str){
 var match = make(function(state, sr){
 		if(typeof sr == "string")
 			return (state.substring(0, sr.length) == sr) ?
-				make_result(state.forward(sr.length), sr, sr) : _fail(state, sr);
+				make_result(state.scroll(sr.length), sr, sr) : _fail(state, sr);
 		if(sr.exec){
 			sr = new RegExp("^" + sr.source);
 			var substr = state.substring(0);
@@ -704,7 +709,7 @@ var match = make(function(state, sr){
 			match = match && match[0];
 			var length = match && match.length;
 			var matched = substr.substr(0, length);
-			return length ? make_result(state.forward(length), matched, matched) : _fail(state, sr.source.substr(1));
+			return length ? make_result(state.scroll(length), matched, matched) : _fail(state, sr.source.substr(1));
 		}
 	});
 
@@ -1140,6 +1145,10 @@ var anyChar = [satisfy, const_(true)].resolve();
 //choice ps           = foldr (<|>) mzero ps
 //
 
+function choice(ps){
+	return foldr(parserPlus, mzero, ps);
+}
+
 
 //-- | @option x p@ tries to apply parser @p@. If @p@ fails without
 //-- consuming input, it returns the value @x@, otherwise the value
@@ -1152,6 +1161,10 @@ var anyChar = [satisfy, const_(true)].resolve();
 //option :: (Stream s m t) => a -> ParsecT s u m a -> ParsecT s u m a
 //option x p          = p <|> return x
 //
+
+function option(x, p){
+	return parserPlus(p, return_(x));
+}
 
 
 //-- | @optionMaybe p@ tries to apply parser @p@.  If @p@ fails without
@@ -1171,6 +1184,10 @@ var anyChar = [satisfy, const_(true)].resolve();
 //optional p          = do{ p; return ()} <|> return ()
 //
 
+function optional(p){
+	return parserPlus(do_(p, return_()), return_());
+}
+
 
 //-- | @between open close p@ parses @open@, followed by @p@ and @close@.
 //-- Returns the value returned by @p@.
@@ -1182,6 +1199,10 @@ var anyChar = [satisfy, const_(true)].resolve();
 //between open close p
 //                    = do{ open; x <- p; close; return x }
 //
+
+var between = curry(function(open, close, p){
+	return do_(open, bind("x", p), close, ret("x"));
+});
 
 
 //-- | @skipMany1 p@ applies the parser @p@ /one/ or more times, skipping
@@ -1230,6 +1251,10 @@ function skipMany1(p){
 //sepBy p sep         = sepBy1 p sep <|> return []
 //
 
+function sepBy(p, sep){
+	return parserPlus(sepBy1(p, sep), return_([]));
+};
+
 
 //-- | @sepBy1 p sep@ parses /one/ or more occurrences of @p@, separated
 //-- by @sep@. Returns a list of values returned by @p@. 
@@ -1241,6 +1266,14 @@ function skipMany1(p){
 //                        }
 //
 //
+
+function sepBy1(p, sep){
+	return do_(
+		bind("x", p),
+		bind("xs", many( do_(sep, p) ) ),
+		ret(withBound(cons, "x", "xs"))
+	);
+};
 
 
 //-- | @sepEndBy1 p sep@ parses /one/ or more occurrences of @p@,
@@ -1257,6 +1290,7 @@ function skipMany1(p){
 //                        }
 //
 
+//TODO
 
 //-- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
 //-- separated and optionally ended by @sep@, ie. haskell style
@@ -1269,6 +1303,9 @@ function skipMany1(p){
 //
 //
 
+function sepEndBy(p, sep){
+	return parserPlus(sepEndBy1(p, sep), return_([]));
+}
 
 //-- | @endBy1 p sep@ parses /one/ or more occurrences of @p@, seperated
 //-- and ended by @sep@. Returns a list of values returned by @p@. 
@@ -1276,6 +1313,10 @@ function skipMany1(p){
 //endBy1 :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m sep -> ParsecT s u m [a]
 //endBy1 p sep        = many1 (do{ x <- p; sep; return x })
 //
+
+function endBy1(p, sep){
+	return many1(do_( bind("x", p),  sep, ret("x") ));
+};
 
 
 //-- | @endBy p sep@ parses /zero/ or more occurrences of @p@, seperated
@@ -1286,6 +1327,10 @@ function skipMany1(p){
 //endBy :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m sep -> ParsecT s u m [a]
 //endBy p sep         = many (do{ x <- p; sep; return x })
 //
+
+function endBy(p, sep){
+	return many(do_( bind("x", p),  sep, ret("x") ));
+};
 
 
 //-- | @count n p@ parses @n@ occurrences of @p@. If @n@ is smaller or
@@ -1311,6 +1356,10 @@ function count(n, p){
 //chainr p op x       = chainr1 p op <|> return x
 //
 
+function chainr(p, op, x){
+	return parserPlus(chainr1(p, op), return_(x));
+}
+
 
 //-- | @chainl p op x@ parser /zero/ or more occurrences of @p@,
 //-- separated by @op@. Returns a value obtained by a /left/ associative
@@ -1321,6 +1370,10 @@ function count(n, p){
 //chainl :: (Stream s m t) => ParsecT s u m a -> ParsecT s u m (a -> a -> a) -> a -> ParsecT s u m a
 //chainl p op x       = chainl1 p op <|> return x
 //
+
+function chainl(p, op, x){
+	return parserPlus(chainl1(p, op), return_(x));
+}
 
 
 //-- | @chainl1 p op x@ parser /one/ or more occurrences of @p@,
@@ -1349,6 +1402,26 @@ function count(n, p){
 //                                <|> return x
 //
 
+function chainl1(p, op){
+	var scan =	do_( 
+					bind("x", p), 
+					function(s, b){ return rest(b.x)(s) }
+				);
+
+	function rest(x){ 
+		var a = do_(
+					bind("f", op),
+					bind("y", p),
+					function(s, b){
+						return rest(b.f(x, b.y))(s)
+					}
+				);
+		return parserPlus(a, return_(x));
+	}
+
+	return scan;
+};
+
 
 //-- | @chainr1 p op x@ parser /one/ or more occurrences of |p|,
 //-- separated by @op@ Returns a value obtained by a /right/ associative
@@ -1366,6 +1439,28 @@ function count(n, p){
 //                                    }
 //                                <|> return x
 //
+
+function chainr1(p, op){
+	var scan =	do_( 
+					bind("x", p), 
+					function(s, b){ return rest(b.x)(s) }
+				);
+
+	function rest(x){ 
+		var a = do_(
+					bind("f", op),
+					bind("y", scan),
+					function(s, b){
+						return make_result(s, "", b.f(x, b.y))
+					}
+				);
+		return parserPlus(a, return_(x));
+	}
+
+	return scan;
+};
+
+
 
 
 //-----------------------------------------------------------
@@ -1444,6 +1539,18 @@ function notFollowedBy(p){
 //                              do{ x <- p; xs <- scan; return (x:xs) }
 //
 
+function manyTill(p, end){
+
+	function _scan(s){ return scan(s) }
+
+	var scan = parserPlus(
+		do_( end, return_([]) ),
+		do_( bind("x", p), bind("xs", _scan), ret(withBound(cons, "x", "xs")) )
+	)
+
+	return scan;
+}
+
 
 //-- | @lookAhead p@ parses @p@ without consuming any input.
 //
@@ -1454,3 +1561,11 @@ function notFollowedBy(p){
 //                        ; return x
 //                        }
 
+function lookAhead(p){
+	return do_(
+		bind("state", getParserState),
+		bind("x", p),
+		setParserState("state"),
+		ret("x")
+	);
+}
