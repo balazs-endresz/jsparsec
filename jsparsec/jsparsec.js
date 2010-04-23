@@ -316,8 +316,8 @@ function _fail(state, expecting){
 
 
 //accepts an identifier string, see usage with notFollowedBy
-function unexpected(name){ return function(state, bindings){
-	return make_result(state, "", null, false, {unexpected: bindings[name]});
+function unexpected(name){ return function(state, scope){
+	return make_result(state, "", null, false, {unexpected: scope[name]});
 }}
 
 function parserFail(msg){ return function(state){
@@ -363,11 +363,11 @@ function _make(fn, show, p1, p2, pN, action){
 		opt1 = p2 ? toParser(opt1) : opt1;
 		opt1 = action ? curry(opt1) : opt1;
 
-		var ret = function(state) {
+		var ret = function(state, scope) {
 			var result = state.getCached(pid);
 			if(result !== undef)
 				return result;
-			result = fn(state,
+			result = fn(state, scope,
 						p1 ? (p.length ? p : p()) : p,
 						p2 ? (opt1.length ? opt1 : opt1()) : opt1);
 
@@ -392,20 +392,22 @@ var makeAction = function(fn, show){return _make(fn, show, false, false, false, 
 
 
 function parserBind(p,f){ 
-	return function(state){ return f(p(state)) }
+	return function(state, scope){ return f(p(state, scope)) }
 }
 
 //stops when one parser has failed and returns only the last result
-var do_ = makeNP(function(state, parsers){
-		var bindings = {},
+var do_ = makeNP(function(state, _scope, parsers){
+		var scope = {},
 			matched = "",
 			i = 0,
 			l = parsers.length,
 			p, result;
+		
+		scope.scope = _scope;
 
 		for(; i < l; ++i){
 			p = parsers[i];
-			result = (p.length ? p : p())(state, bindings);
+			result = (p.length ? p : p())(state, scope);
 			matched += result.matched;
 			if(!result.success)
 				break;			
@@ -421,10 +423,10 @@ var do_ = makeNP(function(state, parsers){
 	});
 
 
-function bind(name, p){ return function(state, bindings){
-	var result = p(state, bindings);
+function bind(name, p){ return function(state, scope){
+	var result = p(state, scope);
 	if(result.success)
-		bindings[name] = result.ast;
+		scope[name] = result.ast;
 	return result;
 }};
 
@@ -434,32 +436,32 @@ function ret(name, more){
 	if(more) 
 		args = slice(arguments);
 
-	return function(state, bindings){
+	return function(state, scope){
 		var ast, type = typeof name;
 		//if(args){
-		//	ast =  resolve(resolveBindings(args, bindings));
+		//	ast =  resolve(resolveBindings(args, scope));
 		//}else 
 		if(type == "string"){
-			if(!(name in bindings))
+			if(!(name in scope))
 				throw 'Not in scope: "' + name + '"';
-			ast = bindings[name];		
+			ast = scope[name];		
 		}else
-			ast = name(bindings);
+			ast = name(scope);
 
 		return make_result(state, "", ast);
 	}
 }
 
-function resolveBindings(arr, bindings){
+function resolveBindings(arr, scope){
 	return isArray(arr) ?
-		map(function(e){ return (e in bindings) ? bindings[e] : resolveBindings(e) }, arr)
+		map(function(e){ return (e in scope) ? scope[e] : resolveBindings(e) }, arr)
 		: arr;
 }
 
 function withBound(fn){
 	var args = slice(arguments, 1)
-	return function(bindings){
-		return fn.apply(null, map(function(e){ return bindings[e] }, args));
+	return function(scope){
+		return fn.apply(null, map(function(e){ return scope[e] }, args));
 	}
 }
 
@@ -468,15 +470,15 @@ function getParserState(state){
 	return make_result(state, "", state.index);
 }
 
-function setParserState(id){ return function(state, bindings){
-	state.scrollTo(bindings[id]);
+function setParserState(id){ return function(state, scope){
+	state.scrollTo(scope[id]);
 	return make_result(state, "", undef);
 }}
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
 //this function does what `pure` and `return` do in Haskell
-function parserReturn(value){ return function(state, bindings){
+function parserReturn(value){ return function(state, scope){
 	return make_result(state, "", value);
 }}
 
@@ -494,8 +496,8 @@ function ap(a, b){
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var action = makeAction(function(state, p, f){
-		var result = p(state);
+var action = makeAction(function(state, scope, p, f){
+		var result = p(state, scope);
 		result = extend({}, result);
 		result.ast = f(result.ast);
 		return result;
@@ -525,10 +527,10 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var parserPlus = makeNP(function(state, parsers){
+var parserPlus = makeNP(function(state, scope, parsers){
 		var i = 0, l = parsers.length, result, ast, errors = [];
 		for(; i < l; ++i){
-			ast = (result = parsers[i](state)).ast;
+			ast = (result = parsers[i](state, scope)).ast;
 			result.expecting && errors.push(result.expecting);
 			if(ast !== undefined)
 				break;
@@ -545,10 +547,10 @@ var parserPlus = makeNP(function(state, parsers){
 var mplus = parserPlus;
 
 
-var try_ = make1P(function(state, p){
+var try_ = make1P(function(state, scope, p){
 		var prevIndex = state.index,
 			prevLength = state.length,
-			result = p(state);
+			result = p(state, scope);
 
 		if(result.success)
 			return result;
@@ -564,9 +566,8 @@ var try_ = make1P(function(state, p){
 //evaluates them in order and
 //succeeds if all the parsers succeeded
 //fails when a parser fails but returns the array of previous ASTs in the result
-var tokens = makeNP(function(state, parsers){
-		var bindings = {},
-			matched = "",
+var tokens = makeNP(function(state, scope, parsers){
+		var matched = "",
 			ast = [],
 			i = 0,
 			l = parsers.length,
@@ -574,7 +575,7 @@ var tokens = makeNP(function(state, parsers){
 
 		for(; i < l; ++i){
 			p = parsers[i];
-			result = (p.length ? p : p())(state, bindings);
+			result = (p.length ? p : p())(state, scope);
 			matched += result.matched;
 			if(!result.success)
 				break;
@@ -591,11 +592,11 @@ var tokens = makeNP(function(state, parsers){
 
 
 function _many(onePlusMatch){ 
-	return make1P(function(state, p){
+	return make1P(function(state, scope, p){
 		var ast = [],
 			matched = "",
 			prevIndex = state.index,
-			result = p(state);
+			result = p(state, scope);
 
 		if(onePlusMatch && !result.success) 
 			return _fail(state);
@@ -608,7 +609,7 @@ function _many(onePlusMatch){
 				break;
 					
 			prevIndex = state.index;
-			result = p(state);
+			result = p(state, scope);
 			
 		}
 		result = extend({}, result);
@@ -626,29 +627,29 @@ var many = _many(false);
 
 var many1 = _many(true);
 
-var skipMany = make1P(function(state, p){
-		var result = many(p)(state);
+var skipMany = make1P(function(state, scope, p){
+		var result = many(p)(state, scope);
 		result = extend({}, result);
 		result.ast = undef;
 		return result;
 	});
 
-var satisfy = make(function(state, cond){
+var satisfy = make(function(state, scope, cond){
 		var fstchar = state.at(0);
 		return (state.length > 0 && cond(fstchar)) ?
 			make_result(state.scroll(1), fstchar, fstchar) : 
 			_fail(state, fstchar);
 	});
 
-var char_ = make(function(state, c){
+var char_ = make(function(state, scope, c){
 		return (state.length > 0 && state.at(0) == c) ?
 			make_result(state.scroll(1), c, c) : 
 			_fail(state, c);
 	});
 
-var string = make(function(state, s){
+var string = make(function(state, scope, s){
 	var startIndex = state.index;
-	var result = join_action(tokens.apply(null, map(char_, s)), "")(state);
+	var result = join_action(tokens.apply(null, map(char_, s)), "")(state, scope);
 	result = extend({}, result);
 	if(!result.success)
 		result.expecting = {at:startIndex, expecting: s};
@@ -662,7 +663,7 @@ var string = make(function(state, s){
 // 'range' is a parser combinator that returns a single character parser
 // (similar to 'char_'). It parses single characters that are in the inclusive
 // range of the 'lower' and 'upper' bounds ("a" to "z" for example).
-var range = make(function(state, lower, upper){
+var range = make(function(state, scope, lower, upper){
 		if(state.length < 1) 
 			return _fail(state);
 
@@ -674,8 +675,8 @@ var range = make(function(state, lower, upper){
 	});
 
 
-var optional_old = make1P(function(state, p){
-		var result = p(state);
+var optional_old = make1P(function(state, scope, p){
+		var result = p(state, scope);
 		if(!result.success && !result.matched.length){
 			result = extend({}, result);
 			delete result.expecting;
@@ -685,9 +686,9 @@ var optional_old = make1P(function(state, p){
 	});
 
 
-var label = make1P(function(state, p, str){
+var label = make1P(function(state, scope, p, str){
 		var prevIndex = state.index;
-		var result = p(state);
+		var result = p(state, scope);
 		if(!result.success){
 			result = extend({}, result);
 			result.expecting = {at: prevIndex, expecting: str};
@@ -698,7 +699,7 @@ var label = make1P(function(state, p, str){
 
 //accepts a regexp or a string
 //in case of a string it either matches the whole string or nothing
-var match = make(function(state, sr){
+var match = make(function(state, scope, sr){
 		if(typeof sr == "string")
 			return (state.substring(0, sr.length) == sr) ?
 				make_result(state.scroll(sr.length), sr, sr) : _fail(state, sr);
@@ -1185,7 +1186,7 @@ function option(x, p){
 //
 
 function optional(p){
-	return parserPlus(do_(p, return_()), return_());
+	return parserPlus(do_(p, return_(null)), return_(null));
 }
 
 
@@ -1273,7 +1274,7 @@ function sepBy1(p, sep){
 		bind("xs", many( do_(sep, p) ) ),
 		ret(withBound(cons, "x", "xs"))
 	);
-};
+}
 
 
 //-- | @sepEndBy1 p sep@ parses /one/ or more occurrences of @p@,
@@ -1290,7 +1291,21 @@ function sepBy1(p, sep){
 //                        }
 //
 
-//TODO
+function sepEndBy1(p, sep){
+	return do_(
+		bind("x", p),
+		parserPlus(
+			do_(
+				sep,
+				//bind("xs", sepEndBy(p, sep)),
+				//thanks to eager evaluation this doesn't terminate without eta-expansion
+				bind("xs", function(state){ return sepEndBy(p, sep)(state) }),
+				ret(function(scope){ return cons(scope.scope.x, scope.xs) })
+			),
+			ret(function(scope){ return [scope.x] })
+		)
+	);
+}
 
 //-- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
 //-- separated and optionally ended by @sep@, ie. haskell style
@@ -1405,15 +1420,15 @@ function chainl(p, op, x){
 function chainl1(p, op){
 	var scan =	do_( 
 					bind("x", p), 
-					function(s, b){ return rest(b.x)(s) }
+					function(state, scope){ return rest(scope.x)(state) }
 				);
 
 	function rest(x){ 
 		var a = do_(
 					bind("f", op),
 					bind("y", p),
-					function(s, b){
-						return rest(b.f(x, b.y))(s)
+					function(state, scope){
+						return rest(scope.f(x, scope.y))(state, scope)
 					}
 				);
 		return parserPlus(a, return_(x));
@@ -1443,15 +1458,15 @@ function chainl1(p, op){
 function chainr1(p, op){
 	var scan =	do_( 
 					bind("x", p), 
-					function(s, b){ return rest(b.x)(s) }
+					function(state, scope){ return rest(scope.x)(state) }
 				);
 
 	function rest(x){ 
 		var a = do_(
 					bind("f", op),
 					bind("y", scan),
-					function(s, b){
-						return make_result(s, "", b.f(x, b.y))
+					function(state, scope){
+						return make_result(s, "", scope.f(x, scope.y))
 					}
 				);
 		return parserPlus(a, return_(x));
@@ -1513,8 +1528,8 @@ function notFollowedBy(p){
 			do_(
 				bind("c", try_(p)),
 				unexpected("c")
-			),/* <|> */
-			return_()
+			),
+			return_(null)
 		)
 	);
 }
@@ -1541,7 +1556,7 @@ function notFollowedBy(p){
 
 function manyTill(p, end){
 
-	function _scan(s){ return scan(s) }
+	function _scan(state){ return scan(state) }
 
 	var scan = parserPlus(
 		do_( end, return_([]) ),
