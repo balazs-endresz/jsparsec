@@ -423,12 +423,16 @@ var do_ = makeNP(function(state, _scope, parsers){
 	});
 
 
-function bind(name, p){ return function(state, scope){
-	var result = p(state, scope);
-	if(result.success)
-		scope[name] = result.ast;
-	return result;
-}};
+function bind(name, p){ 
+	if(name == "scope")
+		throw "Can't use 'scope' as an identifier!";
+	return function(state, scope){
+		var result = p(state, scope);
+		if(result.success)
+			scope[name] = result.ast;
+		return result;
+	}
+};
 
 //returns the value of an identifier or applies the passed function to the bindings
 function ret(name, more){
@@ -660,20 +664,13 @@ var string = make(function(state, scope, s){
 });
 
 
-// 'range' is a parser combinator that returns a single character parser
-// (similar to 'char_'). It parses single characters that are in the inclusive
-// range of the 'lower' and 'upper' bounds ("a" to "z" for example).
-var range = make(function(state, scope, lower, upper){
-		if(state.length < 1) 
-			return _fail(state);
 
-		var ch = state.at(0);
-		if(ch >= lower && ch <= upper) 
-			return make_result(state.scroll(1), ch, ch);
-
-		return _fail(state, "[" + lower +"-"+ upper + "]");
-	});
-
+function range(lower, upper){
+    return {
+		indexOf: function(ch){ return (ch >= lower && ch <= upper) ? true : -1 },
+		toString: function(){ return "range(" + lower + ", " + upper + ")" }
+	};
+}
 
 var optional_old = make1P(function(state, scope, p){
 		var result = p(state, scope);
@@ -960,7 +957,7 @@ function isOctDigit(c){
 //oneOf cs            = satisfy (\c -> elem c cs)
 
 var oneOf = function(cs){
-	return satisfy(function(c){ return elem(c, cs) });
+	return label(satisfy(function(c){ return elem(c, cs) }), "oneOf(" + cs + ")");
 };
 
 // | As the dual of 'oneOf', @noneOf cs@ succeeds if the current
@@ -973,7 +970,7 @@ var oneOf = function(cs){
 //noneOf cs           = satisfy (\c -> not (elem c cs))
 
 var noneOf = function(cs){
-	return satisfy(function(c){ return !elem(c, cs) });
+	return label(satisfy(function(c){ return !elem(c, cs) }), "noneOf(" + cs + ")");
 };
 
 
@@ -1490,6 +1487,11 @@ function chainr1(p, op){
 //anyToken            = tokenPrim show (\pos _tok _toks -> pos) Just
 //
 
+function anyToken(state){
+	var at = state.at(0);
+	return at.length ? make_result(state.scroll(1), at, at) : _fail(state);
+}
+
 
 //-- | This parser only succeeds at the end of the input. This is not a
 //-- primitive parser but it is defined using 'notFollowedBy'.
@@ -1500,6 +1502,8 @@ function chainr1(p, op){
 //eof                 = notFollowedBy anyToken <?> "end of input"
 //
 
+// this works too:
+// var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
 function eof(state){
     return make_result(state, "", undef, !state.length, state.length ? "end of input" : undef);
 }
