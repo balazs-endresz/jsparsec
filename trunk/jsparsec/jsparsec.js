@@ -1,7 +1,7 @@
 /*! 
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 0.0.2
+ * Version: 0.0.3
  * 
  * http://code.google.com/p/jsparsec/
  * 
@@ -31,7 +31,7 @@ var undef,
 function curry(fn){
   function ret(){
     var args = slice(arguments);
-    return args.length >= fn.length ? fn.apply(null, args) : 
+    return args.length >= (fn._length === undefined ? fn.length : fn._length) ? fn.apply(null, args) : 
       function(){
         return ret.apply( null, args.concat(slice(arguments)) );
       };
@@ -174,6 +174,139 @@ function sequence(ms){
 
 	return foldr(k, return_([]), ms);
 }
+
+
+
+
+
+// -------------------------------------------------
+// Algebraic Data Types
+// -------------------------------------------------
+
+function Record(){}
+var record = new Record;
+
+
+//this is used for simulating the record syntax
+//but it's not guaranteed to work in every javascript environment
+//beacause it assumes that the keys of objects are iterated in the order they were defined
+//but that is not part of the ECMAScript standard
+function getNthKey(obj, nth) {
+	if(!/[0-9]/.test(nth))
+		return nth;
+	if(typeof obj != "object")
+		return nth;
+    var i = 0;
+    for (var key in obj){
+		if (obj.hasOwnProperty(key) && i == nth)  
+			return key;  
+		i++
+	}
+    return -1;  
+}
+
+
+function data(type, constr){
+	if(type.constructors)
+		throw "Type constructor has been already defined: '" + type.name + "'";
+	type.constructors = constr;
+
+	for(var i = 0, l = constr.length; i < l; ++i){
+		var single = typeof constr[i] != "object",
+			name =  single  ? constr[i] : constr[i][0],fieldsOrArgs ;
+		if(name in {})
+			throw "The name of the data constructor can't be a property of Object.prototype as well!";
+
+		type[name] = single ? value(name)() : value(name, slice(constr[i], 1));
+		if(!single)
+			type[name]._length = slice(constr[i], 1).length
+	}
+
+	function value(constr, fields){
+		var recordDef = fields && typeof fields[0] == "object";
+		return function(_isrecord, rec){
+			var isrecord = (_isrecord instanceof Record),
+				args = isrecord ? rec : slice(arguments),
+				that = new type,
+				i = 0;
+
+			that[constr] = true;
+			if(args !== undef)
+				for(var name in args)
+					if(args.hasOwnProperty(name) && name != constr){
+						if(isrecord && fields && recordDef)
+							if( !(name in fields[0]))
+								throw "The accessor '" + name + "' is not defined for the data constructor '" + constr + "'";
+
+						var recName = getNthKey(fields[0], name);
+						var arg = (args[i] !== undefined) ? args[i] : args[recName];
+						if(recordDef)
+							if(fields[0][recName].name && fields[0][recName] != arg.constructor)
+								throw "Type mismatch: expecting '" + fields[0][recName].name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
+						else
+							if(fields[i].name && fields[i] != arg.constructor)
+								throw "Type mismatch: expecting '" + fields[i].name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
+
+						that[recName] = that[i] = that[name] = args[name];
+						i++;
+					}else if(name == constr)
+						throw "Accessor has the same name as the data constructor: '" + constr + "'";
+
+			return that;
+		};
+	}
+}
+
+//currently type variables on the lhs cannot be declared, and they are not checked at all:
+
+//  function Maybe(){}
+//  data(Maybe, [["Just", "a"], "Nothing"]);
+
+//  var Just    = Maybe.Just;
+//  var Nothing = Maybe.Nothing;
+
+//Just("a") instanceof Maybe
+//Just("a").constructor == Maybe
+//
+//Just("a").Just == true //can be used in place of pattern matching: if(maybeval.Just) ... if(maybeval.Nothing) ...
+//Just("a")[0] == "a"    //access arguments by index
+//
+//Nothing.Nothing == true
+//Nothing == Nothing
+
+
+// using record syntax:
+ 
+/*
+function Type(){}
+
+data(Type, [["Constr1", Number, "a"]
+			,"Constr2"
+			,["Constr3", {acc: Number}]
+			,["Constr4", Number]
+			]);
+
+//in Haskell:
+data Number = ... -- javascript number type
+data Type a = Constr1 Number a
+			| Constr2
+			| Constr3 {acc :: Number}
+			| Constr4 Number
+*/
+
+//Type.Constr3(record, {acc:1}).Constr3 == true
+//Type.Constr3(record, {acc:1}).acc == 1
+//Type.Constr3(record, {acc:1})[0] == 1
+//Type.Constr3(1)[0] == 1
+//Type.Constr3(1).a == 1
+//Type.Constr2.Constr2 == true
+//Type.Constr2 == Type.Constr2
+
+function Maybe(){}
+data(Maybe, [["Just", "a"], "Nothing"]);
+
+
+
 
 // -------------------------------------------------
 // ParseState
@@ -502,6 +635,8 @@ function ap(a, b){
 // the function 'f' will be curried automatically
 var action = makeAction(function(state, scope, p, f){
 		var result = p(state, scope);
+		if(!result.success)
+			return result;
 		result = extend({}, result);
 		result.ast = f(result.ast);
 		return result;
@@ -653,7 +788,8 @@ var char_ = make(function(state, scope, c){
 
 var string = make(function(state, scope, s){
 	var startIndex = state.index;
-	var result = join_action(tokens.apply(null, map(char_, s)), "")(state, scope);
+	var result = tokens.apply(null, map(char_, s))(state, scope);
+	result.ast = result.ast.join("");
 	result = extend({}, result);
 	if(!result.success)
 		result.expecting = {at:startIndex, expecting: s};
@@ -1173,6 +1309,10 @@ function option(x, p){
 //optionMaybe p       = option Nothing (liftM Just p)
 //
 
+function optionMaybe(p){
+	return option(Maybe.Nothing, fmap(Maybe.Just, p));
+}
+
 
 //-- | @optional p@ tries to apply parser @p@.  It will parse @p@ or nothing.
 //-- It only fails if @p@ fails after consuming input. It discards the result
@@ -1251,7 +1391,7 @@ function skipMany1(p){
 
 function sepBy(p, sep){
 	return parserPlus(sepBy1(p, sep), return_([]));
-};
+}
 
 
 //-- | @sepBy1 p sep@ parses /one/ or more occurrences of @p@, separated
@@ -1328,7 +1468,7 @@ function sepEndBy(p, sep){
 
 function endBy1(p, sep){
 	return many1(do_( bind("x", p),  sep, ret("x") ));
-};
+}
 
 
 //-- | @endBy p sep@ parses /zero/ or more occurrences of @p@, seperated
@@ -1342,7 +1482,7 @@ function endBy1(p, sep){
 
 function endBy(p, sep){
 	return many(do_( bind("x", p),  sep, ret("x") ));
-};
+}
 
 
 //-- | @count n p@ parses @n@ occurrences of @p@. If @n@ is smaller or
@@ -1432,7 +1572,7 @@ function chainl1(p, op){
 	}
 
 	return scan;
-};
+}
 
 
 //-- | @chainr1 p op x@ parser /one/ or more occurrences of |p|,
@@ -1470,7 +1610,7 @@ function chainr1(p, op){
 	}
 
 	return scan;
-};
+}
 
 
 
