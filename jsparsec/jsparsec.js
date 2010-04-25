@@ -481,10 +481,34 @@ function toParser(p){
 		isArray(p) ? resolve(p) : p;
 }
 
-var run = curry(function(p, strOrState){
-		return toParser(p.length ? p : p())
+var run = curry(function(p, strOrState, cb){
+		var result = toParser(p.length ? p : p())
 			(strOrState instanceof ParseState ? strOrState : ps(strOrState));
-	});
+
+		result.error = processError(result.expecting, result.remaining);
+		cb && cb(result.error);
+		return result;
+});
+
+function processError(e, s, i, unexp){
+	var index = i === undefined ? s.index : i;
+
+	if(typeof e == "string"){
+		var lines = s.input.split("\n"),
+			linecount = lines.length,
+			restlc = s.input.substr(index).split("\n").length,
+			line = linecount - restlc + 1,
+			lindex = index - lines.splice(0,line-1).join("\n").length -1
+		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) + 
+				"\", expecting \"" + e + "\" at line " + line + " char " + lindex;
+	}
+
+	if(isArray(e)){
+		var err = map(function(er){ return typeof er == "object" ? er.expecting : er }, e);
+		return processError(err.join('" or "'), s);
+	}else if(typeof e == "object")
+		return processError(e.expecting, s, e.at, e.unexpected);
+}
 
 var parser_id = 0;
 
@@ -667,7 +691,12 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
 var parserPlus = makeNP(function(state, scope, parsers){
-		var i = 0, l = parsers.length, result, ast, errors = [];
+		var i = 0,
+			l = parsers.length,
+			result,
+			ast,
+			errors = [];
+
 		for(; i < l; ++i){
 			ast = (result = parsers[i](state, scope)).ast;
 			result.expecting && errors.push(result.expecting);
@@ -675,9 +704,8 @@ var parserPlus = makeNP(function(state, scope, parsers){
 				break;
 		}
 		result = extend({}, result);
-		//result.success = (i != l);
 		if(!result.success)
-			result.expecting = (errors.length && isArray(errors)) ? errors[0] : errors;
+			result.expecting = (!errors.length && isArray(errors)) ? errors[0] : errors;
 		else
 			delete result.expecting;
 		return result;
