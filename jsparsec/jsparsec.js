@@ -11,22 +11,19 @@
  *
  * The initial implementation of some combinators and the memoization is derived from:
  * http://www.bluishcoder.co.nz/2007/10/javascript-parser-combinators.html
- * The most notable difference is that this parser uses a single ParseState object with a 
- * different caching mechanism, and new state objects are never created by any combinator.
  *
  * Most functions should behave like their counterparts in Parsec:
  * http://www.haskell.org/haskellwiki/Parsec
  * 
  */
 
+// -------------------------------------------------
+// Main
+// -------------------------------------------------
+
 var undef,
 	_toString = {}.toString,
 	_slice    = [].slice;
-
-
-// -------------------------------------------------
-// Helper functions
-// -------------------------------------------------
 
 function curry(fn){
   function ret(){
@@ -152,30 +149,34 @@ function replicate(n, x){
 	return ret;
 }
 
-//from Control.Monad
-//
-//-- | Evaluate each action in the sequence from left to right,
-//-- and collect the results.
-//sequence       :: Monad m => [m a] -> m [a] 
-//{-# INLINE sequence #-}
-//sequence ms = foldr k (return []) ms
-//            where
-//              k m m' = do { x <- m; xs <- m'; return (x:xs) }
-
-function sequence(ms){
-
-	function k(m1, m2){
-		return do_(
-			bind("x", m1),
-			bind("xs", m2),
-			ret(withBound(cons, "x", "xs"))
-		);
-	}
-
-	return foldr(k, return_([]), ms);
+function elem(x, xs){
+	return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
 }
 
-
+function isSpace(c){
+	return /\s/.test(c);
+}
+function isUpper(c){
+	return c.toUpperCase() == c;
+}
+function isLower(c){
+	return c.toLowerCase() == c;
+}
+function isAlphaNum(c){
+	return /\w/.test(c);
+}
+function isAlpha(c){
+	return /\w/.test(c) && /\D/.test(c);
+}
+function isDigit(c){
+	return /\d/.test(c);
+}
+function isHexDigit(c){
+	return /[0-9A-Fa-f]/.test(c);
+}
+function isOctDigit(c){
+	return /[0-7]/.test(c);
+}
 
 
 
@@ -213,7 +214,7 @@ function data(type, constr){
 
 	for(var i = 0, l = constr.length; i < l; ++i){
 		var single = typeof constr[i] != "object",
-			name =  single  ? constr[i] : constr[i][0],fieldsOrArgs ;
+			name =  single  ? constr[i] : constr[i][0];
 		if(name in {})
 			throw "The name of the data constructor can't be a property of Object.prototype as well!";
 
@@ -305,6 +306,137 @@ data Type a = Constr1 Number a
 function Maybe(){}
 data(Maybe, [["Just", "a"], "Nothing"]);
 
+
+
+// -------------------------------------------------
+// Operators
+// -------------------------------------------------
+
+function infixl(strength){ return ["l", strength] }
+function infixr(strength){ return ["r", strength] }
+function infix (strength){ return ["x", strength] }
+
+function getFixity(opstr){
+	return operators[opstr] && operators[opstr].fixity;
+}
+function getFixityDir(opstr){ 
+	return operators[opstr] && (operators[opstr].fixity[0] || "l" );
+}
+function getFixityStrn(opstr){
+	var op = operators[opstr];
+	return op && (isDefined(op.fixity[1]) ? op.fixity[1] : 9);
+}
+
+
+var operators = {
+	"$" : {
+		func:	call,
+		fixity: infixr(0)
+		//,type:	[Function, "*", "*"]
+	},
+	"." : {
+		func:	compose1,
+		fixity: infixr(9)
+		//,type:	[Function, Function, Function]
+	},
+	":" : {
+		func:	cons,
+		fixity: infixr(5)
+	}
+	
+};
+
+
+
+
+// -------------------------------------------------
+// Array expressions
+// -------------------------------------------------
+
+// -- see usage in Char
+
+function splice_args(args, i, rec){
+	var op = operators[args[i]].func;
+	var	item = op(args[i-1], args[i+1]);
+	args.splice(i-1, 3 , item);
+	return resolve(args, rec);
+}
+
+//TODO: reject multiple infix operators in the same expression
+function resolve(args, rec){
+	args = map(function(e){ return isArray(e) ? resolve(e) : e }, args);
+	if(rec)
+		args = map(function(e){return e instanceof Recurse ? rec : e}, args);
+
+	var fna = [], fn, newfna = [], i = 0, l = args.length;
+	for(; i < l; ++i){
+		if(!operators[args[i]] && i != (l-1))
+			fna.push(args[i]);
+		else{
+			if(i == (l-1))
+				fna.push(args[i]);
+			if(fna.length> 1)
+				fn = fna[0].apply(null, fna.slice(1));
+			else
+				fn = fna[0];
+			newfna.push(fn);
+			if(i != l-1)
+				newfna.push(args[i]);
+			fna=[];
+		}
+	}
+	args = newfna;
+
+
+	var	dir    = map(getFixityDir , args),
+		strn   = map(getFixityStrn, args),
+		max    = filter(strn, isDefined).sort().pop(),
+		maxfst = indexOf(strn, max),
+		maxlst = lastIndexOf(strn, max);
+	
+	return  dir[maxfst] == "l" ? splice_args(args, maxfst, rec) :
+			dir[maxlst] == "r" ? splice_args(args, maxlst, rec) :
+			dir[maxfst] == "x" ? splice_args(args, maxfst, rec) :
+			args[0];
+}
+
+Array.prototype.resolve = function(){ return resolve(this) };
+
+// -------------------------------------------------
+// Callstream interface for the do notation
+// -------------------------------------------------
+
+function Recurse(){}
+
+var recurse = new Recurse();
+
+function cs(){
+	return (function(args){
+		function rec(s){return p(s)}
+
+		var lines = [], p, resolved;
+		lines.push(resolve(args, rec));
+
+		function line(s){
+			if(s instanceof ParseState)
+				return (resolved ? p : line.resolve())(s);
+				
+			lines.push(resolve(arguments, rec));
+			return line;
+		}
+
+		line.resolve = function(){
+			if(resolved)
+				return p;
+			p = do_.apply(null, lines);
+			lines = null;
+			resolved = true;
+			return p;
+		}
+
+		return line;
+	})(arguments);
+}
 
 
 
@@ -470,7 +602,7 @@ var empty = mzero;
 
 
 // -------------------------------------------------
-// Prim
+// Parser
 // -------------------------------------------------
 
 
@@ -481,14 +613,18 @@ function toParser(p){
 		isArray(p) ? resolve(p) : p;
 }
 
-var run = curry(function(p, strOrState, cb){
+function run(p, strOrState, cb){
 		var result = toParser(p.length ? p : p())
 			(strOrState instanceof ParseState ? strOrState : ps(strOrState));
-
-		result.error = processError(result.expecting, result.remaining);
-		cb && cb(result.error);
+		if(!result.success){
+			result.error = processError(result.expecting, result.remaining);
+			cb && cb(result.error);
+		}else{
+			delete result.error;
+			delete result.expecting;
+		}
 		return result;
-});
+}
 
 function processError(e, s, i, unexp){
 	var index = i === undefined ? s.index : i;
@@ -499,8 +635,9 @@ function processError(e, s, i, unexp){
 			restlc = s.input.substr(index).split("\n").length,
 			line = linecount - restlc + 1,
 			lindex = index - lines.splice(0,line-1).join("\n").length -1
-		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) + 
-				"\", expecting \"" + e + "\" at line " + line + " char " + lindex;
+		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) +  
+				(unexp ? "" : ("\", expecting \"" + e)) + 
+				"\" at line " + line + " char " + lindex;
 	}
 
 	if(isArray(e)){
@@ -511,6 +648,8 @@ function processError(e, s, i, unexp){
 }
 
 var parser_id = 0;
+
+function Parser(){}
 
 function _make(fn, show, p1, p2, pN, action){
 	return function(p, opt1){
@@ -532,6 +671,7 @@ function _make(fn, show, p1, p2, pN, action){
 
 			return result;
 		}
+		ret.constructor = Parser;
 		//ret.show = show;
 		return ret;
 	}
@@ -876,30 +1016,32 @@ var match = make(function(state, scope, sr){
 	});
 
 
+//from Control.Monad
+//
+//-- | Evaluate each action in the sequence from left to right,
+//-- and collect the results.
+//sequence       :: Monad m => [m a] -> m [a] 
+//{-# INLINE sequence #-}
+//sequence ms = foldr k (return []) ms
+//            where
+//              k m m' = do { x <- m; xs <- m'; return (x:xs) }
 
+function sequence(ms){
 
+	function k(m1, m2){
+		return do_(
+			bind("x", m1),
+			bind("xs", m2),
+			ret(withBound(cons, "x", "xs"))
+		);
+	}
 
-// -------------------------------------------------
-// Operators
-// -------------------------------------------------
-
-function infixl(strength){ return ["l", strength] }
-function infixr(strength){ return ["r", strength] }
-function infix (strength){ return ["x", strength] }
-
-function getFixity(opstr){
-	return operators[opstr] && operators[opstr].fixity;
+	return foldr(k, return_([]), ms);
 }
-function getFixityDir(opstr){ 
-	return operators[opstr] && (operators[opstr].fixity[0] || "l" );
-}
-function getFixityStrn(opstr){
-	var op = operators[opstr];
-	return op && (isDefined(op.fixity[1]) ? op.fixity[1] : 9);
-}
 
 
-var operators = {
+
+extend(operators, {
 	"<-" : {
 		func:	bind,
 		fixity: infixr(0)
@@ -962,154 +1104,21 @@ var operators = {
 		func:	label,
 		fixity: infix(0)
 		//,type:	[Parser, String, Parser]
-	},
-	"$" : {
-		func:	call,
-		fixity: infixr(0)
-		//,type:	[Function, "*", "*"]
-	},
-	"." : {
-		func:	compose1,
-		fixity: infixr(9)
-		//,type:	[Function, Function, Function]
-	},
-	":" : {
-		func:	cons,
-		fixity: infixr(5)
-	}
-	
-};
-
-
-
-
-// -------------------------------------------------
-// Array expressions
-// -------------------------------------------------
-
-// -- see usage in Char
-
-function splice_args(args, i, rec){
-	var op = operators[args[i]].func;
-	var	item = op(args[i-1], args[i+1]);
-	args.splice(i-1, 3 , item);
-	return resolve(args, rec);
-}
-
-//TODO: reject multiple infix operators in the same expression
-function resolve(args, rec){
-	args = map(function(e){ return isArray(e) ? resolve(e) : e }, args);
-	if(rec)
-		args = map(function(e){return e instanceof Recurse ? rec : e}, args);
-
-	var fna = [], fn, newfna = [], i = 0, l = args.length;
-	for(; i < l; ++i){
-		if(!operators[args[i]] && i != (l-1))
-			fna.push(args[i]);
-		else{
-			if(i == (l-1))
-				fna.push(args[i]);
-			if(fna.length> 1)
-				fn = fna[0].apply(null, fna.slice(1));
-			else
-				fn = fna[0];
-			newfna.push(fn);
-			if(i != l-1)
-				newfna.push(args[i]);
-			fna=[];
-		}
-	}
-	args = newfna;
-
-
-	var	dir    = map(getFixityDir , args),
-		strn   = map(getFixityStrn, args),
-		max    = filter(strn, isDefined).sort().pop(),
-		maxfst = indexOf(strn, max),
-		maxlst = lastIndexOf(strn, max);
-	
-	return  dir[maxfst] == "l" ? splice_args(args, maxfst, rec) :
-			dir[maxlst] == "r" ? splice_args(args, maxlst, rec) :
-			dir[maxfst] == "x" ? splice_args(args, maxfst, rec) :
-			args[0];
-}
-
-Array.prototype.resolve = function(){ return resolve(this) };
-
-// -------------------------------------------------
-// Callstream interface for the do notation
-// -------------------------------------------------
-
-function Recurse(){}
-
-var recurse = new Recurse();
-
-function cs(){
-	return (function(args){
-		function rec(s){return p(s)}
-
-		var lines = [], p, resolved;
-		lines.push(resolve(args, rec));
-
-		function line(s){
-			if(s instanceof ParseState)
-				return (resolved ? p : line.resolve())(s);
-				
-			lines.push(resolve(arguments, rec));
-			return line;
-		}
-
-		line.resolve = function(){
-			if(resolved)
-				return p;
-			p = do_.apply(null, lines);
-			lines = null;
-			resolved = true;
-			return p;
-		}
-
-		return line;
-	})(arguments);
-}
-
-
+	}	
+});
 
 // -------------------------------------------------
 // Char
 // -------------------------------------------------
 
-function elem(x, xs){
-	return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
-}
 
-function isSpace(c){
-	return /\s/.test(c);
-}
-function isUpper(c){
-	return c.toUpperCase() == c;
-}
-function isLower(c){
-	return c.toLowerCase() == c;
-}
-function isAlphaNum(c){
-	return /\w/.test(c);
-}
-function isAlpha(c){
-	return /\w/.test(c) && /\D/.test(c);
-}
-function isDigit(c){
-	return /\d/.test(c);
-}
-function isHexDigit(c){
-	return /[0-9A-Fa-f]/.test(c);
-}
-function isOctDigit(c){
-	return /[0-7]/.test(c);
-}
+//-- Commonly used character parsers.
 
-
-// -- definitions from: http://code.haskell.org/parsec3/Text/Parsec/Char.hs
-
+//module Text.Parsec.Char where
+//
+//import Data.Char
+//import Text.Parsec.Pos
+//import Text.Parsec.Prim
 
 // | @oneOf cs@ succeeds if the current character is in the supplied
 // list of characters @cs@. Returns the parsed character. See also
@@ -1266,17 +1275,13 @@ var anyChar = [satisfy, const_(true)].resolve();
 
 
 
-
-
-
 // -------------------------------------------------
 // Combinator
 // -------------------------------------------------
 
-//
+
 //-- Commonly used generic combinators
-//-- 
-//
+
 //module Text.Parsec.Combinator
 //    ( choice
 //    , count
@@ -1756,3 +1761,16 @@ function lookAhead(p){
 		ret("x")
 	);
 }
+
+// -------------------------------------------------
+// Token
+// -------------------------------------------------
+
+
+
+// -------------------------------------------------
+// Language
+// -------------------------------------------------
+
+
+
