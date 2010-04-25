@@ -1,0 +1,18 @@
+/*! 
+ * JSParsec - A parser combinator library for JavaScript
+ * 
+ * Version: 0.0.3
+ * 
+ * http://code.google.com/p/jsparsec/
+ * 
+ * Copyright (c) 2010 Balazs Endresz (balazs.endresz@gmail.com)
+ * Dual licensed under the MIT and GPL licenses.
+ * 
+ *
+ * The initial implementation of some combinators and the memoization is derived from:
+ * http://www.bluishcoder.co.nz/2007/10/javascript-parser-combinators.html
+ *
+ * Most functions should behave like their counterparts in Parsec:
+ * http://www.haskell.org/haskellwiki/Parsec
+ * 
+ */
