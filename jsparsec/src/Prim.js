@@ -192,7 +192,7 @@ function processError(e, s, i, unexp){
 			linecount = lines.length,
 			restlc = s.input.substr(index).split("\n").length,
 			line = linecount - restlc + 1,
-			lindex = index - lines.splice(0,line-1).join("\n").length -1
+			lindex = index - lines.splice(0,line-1).join("\n").length;
 		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) +  
 				(unexp ? "" : ("\", expecting \"" + e)) + 
 				"\" at line " + line + " char " + lindex;
@@ -324,6 +324,7 @@ function withBound(fn){
 	}
 }
 
+var returnCall = compose(ret, withBound);
 
 function getParserState(state){
 	return make_result(state, "", state.index);
