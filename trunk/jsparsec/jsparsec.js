@@ -241,12 +241,10 @@ function data(type, constr){
 
 						var recName = getNthKey(fields[0], name);
 						var arg = (args[i] !== undefined) ? args[i] : args[recName];
-						if(recordDef)
-							if(fields[0][recName].name && fields[0][recName] != arg.constructor)
-								throw "Type mismatch: expecting '" + fields[0][recName].name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
-						else
-							if(fields[i].name && fields[i] != arg.constructor)
-								throw "Type mismatch: expecting '" + fields[i].name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
+
+						var check = recordDef ? fields[0][recName] : fields[i];
+						if(check.name && ((check != arg.constructor) || !(arg instanceof check) ))
+							throw "Type mismatch: expecting '" + check.name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
 
 						that[recName] = that[i] = that[name] = args[name];
 						i++;
@@ -317,13 +315,30 @@ function infixr(strength){ return ["r", strength] }
 function infix (strength){ return ["x", strength] }
 
 function getFixity(opstr){
-	return operators[opstr] && operators[opstr].fixity;
+	if(opstr._String)
+		return;
+	var op = operators[opstr];
+	if(opstr._Op && !op)
+		return ["l", 9];
+
+	return op && op.fixity;
 }
 function getFixityDir(opstr){ 
-	return operators[opstr] && (operators[opstr].fixity[0] || "l" );
+	if(opstr._String)
+		return;
+	var op = operators[opstr];
+	if(opstr._Op && !op)
+		return "l";
+
+	return op && (op.fixity[0] || "l" );
 }
 function getFixityStrn(opstr){
+	if(opstr._String)
+		return;
 	var op = operators[opstr];
+	if(opstr._Op && !op)
+		return 9;
+
 	return op && (isDefined(op.fixity[1]) ? op.fixity[1] : 9);
 }
 
@@ -356,38 +371,92 @@ var operators = {
 // -- see usage in Char
 
 function splice_args(args, i, rec){
-	var op = operators[args[i]].func;
+	var op;
+	if(args[i]._Op){
+		delete args[i]._Op;
+		op = args[i];
+	}else
+		op = operators[args[i]].func
+	
 	var	item = op(args[i-1], args[i+1]);
 	args.splice(i-1, 3 , item);
 	return resolve(args, rec);
 }
 
+//in array-expressions if the square brackets are 
+//not intended for groupping subexpressions
+//but an actual array is needed the it should be wrapped in `arr`
+//
+//if a string might be the same as an operator then use `str`
+//
+//and functions can be used as operators by wrapping them in `op`
+
+//var p = [string, str("<|>"), op(parserPlus), return_, arr([])].resolve();
+
+//but usually this can be done by simply using the javascript call operator:
+//
+//var p = [string("<|>"), "<|>", return_([])].resolve();
+
+
+function arr(a){ a._Array = true; return a;}
+
+function str(s){ 
+	var str = new String(s);
+	str._String = true;
+	return str;
+}
+
+function op(fn){ fn._Op = true; return fn;}
+
+
 //TODO: reject multiple infix operators in the same expression
 function resolve(args, rec){
-	args = map(function(e){ return isArray(e) ? resolve(e) : e }, args);
+	//recurse on nested array-expressions or callstreams
+	args = map(function(e){ 
+		if(e && e._Array){
+			delete e._Array;
+			return e;
+		}
+		return isArray(e) ? resolve(e, rec) :
+				(e && e.CallStream) ? e.resolve() : e;
+	}, args);
+	
+	//inject recursive calls
 	if(rec)
 		args = map(function(e){return e instanceof Recurse ? rec : e}, args);
-
+	
+	//execute functions between operators
 	var fna = [], fn, newfna = [], i = 0, l = args.length;
 	for(; i < l; ++i){
-		if(!operators[args[i]] && i != (l-1))
-			fna.push(args[i]);
+		var e = args[i], isOp = false;
+		
+		if(operators[e])
+			isOp = true;
+		if(e && e._String){
+			isOp = false;
+			e = e.toString();
+		}
+		if(e && e._Op)
+			isOp = true;
+
+		if(!isOp && i != (l-1))
+			fna.push(e);
 		else{
 			if(i == (l-1))
-				fna.push(args[i]);
+				fna.push(e);
 			if(fna.length> 1)
 				fn = fna[0].apply(null, fna.slice(1));
 			else
 				fn = fna[0];
 			newfna.push(fn);
 			if(i != l-1)
-				newfna.push(args[i]);
+				newfna.push(e);
 			fna=[];
 		}
 	}
 	args = newfna;
 
-
+	//execute operators
 	var	dir    = map(getFixityDir , args),
 		strn   = map(getFixityStrn, args),
 		max    = filter(strn, isDefined).sort().pop(),
@@ -433,6 +502,8 @@ function cs(){
 			resolved = true;
 			return p;
 		}
+
+		line.CallStream = true;
 
 		return line;
 	})(arguments);
@@ -634,7 +705,7 @@ function processError(e, s, i, unexp){
 			linecount = lines.length,
 			restlc = s.input.substr(index).split("\n").length,
 			line = linecount - restlc + 1,
-			lindex = index - lines.splice(0,line-1).join("\n").length -1
+			lindex = index - lines.splice(0,line-1).join("\n").length;
 		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) +  
 				(unexp ? "" : ("\", expecting \"" + e)) + 
 				"\" at line " + line + " char " + lindex;
@@ -766,6 +837,7 @@ function withBound(fn){
 	}
 }
 
+var returnCall = compose(ret, withBound);
 
 function getParserState(state){
 	return make_result(state, "", state.index);
@@ -1442,7 +1514,7 @@ function sepBy1(p, sep){
 	return do_(
 		bind("x", p),
 		bind("xs", many( do_(sep, p) ) ),
-		ret(withBound(cons, "x", "xs"))
+		returnCall(cons, "x", "xs")
 	);
 }
 
@@ -1737,7 +1809,7 @@ function manyTill(p, end){
 
 	var scan = parserPlus(
 		do_( end, return_([]) ),
-		do_( bind("x", p), bind("xs", _scan), ret(withBound(cons, "x", "xs")) )
+		do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
 	)
 
 	return scan;
@@ -1761,16 +1833,4 @@ function lookAhead(p){
 		ret("x")
 	);
 }
-
-// -------------------------------------------------
-// Token
-// -------------------------------------------------
-
-
-
-// -------------------------------------------------
-// Language
-// -------------------------------------------------
-
-
 

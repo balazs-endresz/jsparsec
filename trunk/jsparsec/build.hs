@@ -14,6 +14,6 @@ files = ["Main.js"
         ,"Prim.js"
         ,"Char.js"
         ,"Combinator.js"
-        ,"Token.js"
-        ,"Language.js"
+--        ,"Token.js"
+--        ,"Language.js"
         ]

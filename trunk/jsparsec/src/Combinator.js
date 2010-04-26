@@ -165,7 +165,7 @@ function sepBy1(p, sep){
 	return do_(
 		bind("x", p),
 		bind("xs", many( do_(sep, p) ) ),
-		ret(withBound(cons, "x", "xs"))
+		returnCall(cons, "x", "xs")
 	);
 }
 
@@ -460,7 +460,7 @@ function manyTill(p, end){
 
 	var scan = parserPlus(
 		do_( end, return_([]) ),
-		do_( bind("x", p), bind("xs", _scan), ret(withBound(cons, "x", "xs")) )
+		do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
 	)
 
 	return scan;
