@@ -11,7 +11,7 @@ var record = new Record;
 //beacause it assumes that the keys of objects are iterated in the order they were defined
 //but that is not part of the ECMAScript standard
 function getNthKey(obj, nth) {
-	if(!/[0-9]/.test(nth))
+	if(!/^[0-9]$/.test(nth))
 		return nth;
 	if(typeof obj != "object")
 		return nth;
@@ -31,8 +31,12 @@ function adtToString(type){
 	return function(){
 		var acc=[], rec = this._recordset;
 		if(!isArray(rec)){
-			for(var name in rec)
-			acc.push(name + " :: " + (type ? (rec[name].name || rec[name]) : this[name]) );
+			for(var name in rec){
+				var item = (type ? (rec[name].name || rec[name]) : this[name]);
+				if(item instanceof Function)
+					item = "Function(" + (item.name || item.constructor.name) + ")";
+				acc.push(name + " :: " + item );
+			}
 			var indent = replicate(this._dataConstructor.length + 2," ").join("");
 			acc = "{" + acc.join("\n" + indent + ",") + "\n" + indent +"}";
 		}else{
@@ -188,6 +192,8 @@ function infixr(strength){ return ["r", strength] }
 function infix (strength){ return ["x", strength] }
 
 function getFixity(opstr){
+	if(!opstr)
+		return;
 	if(opstr._String)
 		return;
 	var op = operators[opstr];
@@ -196,7 +202,10 @@ function getFixity(opstr){
 
 	return op && op.fixity;
 }
-function getFixityDir(opstr){ 
+
+function getFixityDir(opstr){
+	if(!opstr)
+		return;
 	if(opstr._String)
 		return;
 	var op = operators[opstr];
@@ -205,7 +214,10 @@ function getFixityDir(opstr){
 
 	return op && (op.fixity[0] || "l" );
 }
+
 function getFixityStrn(opstr){
+	if(!opstr)
+		return;
 	if(opstr._String)
 		return;
 	var op = operators[opstr];

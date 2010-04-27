@@ -137,12 +137,6 @@ var javaStyle = GenLanguageDef.LanguageDef(record,
 //-- Haskell
 //-----------------------------------------------------------
 
-//-- | A lexer for the haskell language.
-//
-//haskell :: TokenParser st
-//haskell      = makeTokenParser haskellDef
-
-var haskell = makeTokenParser(haskellDef);
 
 //-- | The language definition for the language Haskell98.
 //
@@ -159,7 +153,6 @@ var haskell = makeTokenParser(haskellDef);
 //                                   ]
 //                }
 
-//TODO: implement record update (with a simple `extend` the instanceof op. won't work)
 var haskell98Def = haskellStyle.update(
                 { reservedOpNames: ["::","..","=","\\","|","<-","->","@","~","=>"]
                 , reservedNames  : ["let","in","case","of","if","then","else",
@@ -194,6 +187,13 @@ var haskellDef = haskell98Def.update(
     				   ,"forall"
     				   ])
             });
+
+//-- | A lexer for the haskell language.
+//
+//haskell :: TokenParser st
+//haskell      = makeTokenParser haskellDef
+
+var haskell = makeTokenParser(haskellDef);
 
 
 //-----------------------------------------------------------

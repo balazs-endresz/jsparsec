@@ -196,6 +196,17 @@ function replicate(n, x){
 	return ret;
 }
 
+
+function negate(a){
+	return -a;
+};
+
+//returns True if a list is empty, otherwise False
+function null_(a){
+	return !a.length;
+};
+
+
 function elem(x, xs){
 	return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
 }
