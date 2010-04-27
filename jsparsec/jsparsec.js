@@ -1,7 +1,7 @@
 /*! 
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 0.0.3
+ * Version: 0.0.4
  * 
  * http://code.google.com/p/jsparsec/
  * 
