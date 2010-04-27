@@ -431,8 +431,6 @@ function makeTokenParser(languageDef){
         throw "Type error: unexpected '" + languageDef.constructor.name + "', expecting 'GenLanguageDef.LanguageDef'";
 
 
-//    where
-//
 //    -----------------------------------------------------------
 //    -- Bracketing
 //    -----------------------------------------------------------
@@ -488,175 +486,9 @@ function semiSep1(p){
 
 
 
-//
-//
 //    -----------------------------------------------------------
 //    -- Chars & Strings
 //    -----------------------------------------------------------
-//    charLiteral     = lexeme (between (char '\'')
-//                                      (char '\'' <?> "end of character")
-//                                      characterChar )
-//                    <?> "character"
-
-var charLiteral        = [lexeme, [between, char_('\''), 
-                                    [char_('\'') ,"<?>", "end of character"],
-                                    characterChar]
-                    ,"<?>", "character"].resolve();
-
-//
-//    characterChar   = charLetter <|> charEscape
-//                    <?> "literal character"
-
-var characterChar    = [charLetter ,"<|>", charEscape
-                    ,"<?>", "literal character"].resolve();
-
-//
-//    charEscape      = do{ char '\\'; escapeCode }
-
-var charEscape        = do_(char_('\\'), escapeCode);
-
-//    charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
-
-var charLetter        = satisfy(function(c){ return (c != '\'') && (c != '\\') && (c > '\026') }); //TODO: last expr.
-
-//
-//
-//
-//    stringLiteral   = lexeme (
-//                      do{ str <- between (char '"')
-//                                         (char '"' <?> "end of string")
-//                                         (many stringChar)
-//                        ; return (foldr (maybe id (:)) "" str)
-//                        }
-//                      <?> "literal string")
-
-
-var stringLiteral   = lexeme(
-                          [ cs( "str", "<-", between, char_('"'),
-                                                      [char_('"') ,"<?>", "end of string"],
-                                                      [many, stringChar]
-                               )
-                               (ret, function(scope){ return foldr(maybe(id, (cons)), "", scope.str) })
-                          ,"<?>", "literal string"].resolve()
-                      );
-
-
-
-//
-//    stringChar      =   do{ c <- stringLetter; return (Just c) }
-//                    <|> stringEscape
-//                    <?> "string character"
-
-var stringChar      = [cs( "c" ,"<-", stringLetter )
-                         ( returnCall, Maybe.Just, "c" )
-                      ,"<|>", stringEscape
-                      ,"<?>", "string character"].resolve();
-
-
-//
-//    stringLetter    = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
-
-var stringLetter    = satisfy(function(c){ return (c != '"') && (c != '\\') && (c > '\026') }); //TODO: last expr.
-
-//
-//    stringEscape    = do{ char '\\'
-//                        ;     do{ escapeGap  ; return Nothing }
-//                          <|> do{ escapeEmpty; return Nothing }
-//                          <|> do{ esc <- escapeCode; return (Just esc) }
-//                        }
-
-var stringEscape    = cs( char_, '\\')
-                        (         cs( escapeGap   ) ( return_, Nothing )
-                          ,"<|>", cs( escapeEmpty ) ( return_, Nothing )
-                          ,"<|>", cs( "esc" ,"<-", escapeCode) ( returnCall, Maybe.Just, "esc" )
-                        ).resolve();
-
-
-//
-//    escapeEmpty     = char '&'
-
-var escapeEmpty     = char_('&');
-
-//    escapeGap       = do{ many1 space
-//                        ; char '\\' <?> "end of string gap"
-//                        }
-
-var escapeGap       = cs( many1, space )
-                        ( char_, '\\' ,"<?>", "end of string gap").resolve();
-                        
-
-
-//
-//
-//
-//    -- escape codes
-//    escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
-//                    <?> "escape code"
-
-var escapeCode      = [charEsc ,"<|>", charNum ,"<|>", charAscii ,"<|>", charControl
-                    ,"<?>", "escape code"].resolve();
-
-
-//
-//    charControl     = do{ char '^'
-//                        ; code <- upper
-//                        ; return (toEnum (fromEnum code - fromEnum 'A'))
-//                        }
-
-var charControl     = cs( char_, '^' )
-                        ( "code" ,"<-", upper )
-                        ( ret(function(scope){ return toEnum(fromEnum(scope.code) - fromEnum('A'))  }) ).resolve();
-                        
-
-
-//
-//    charNum         = do{ code <- decimal
-//                                  <|> do{ char 'o'; number 8 octDigit }
-//                                  <|> do{ char 'x'; number 16 hexDigit }
-//                        ; return (toEnum (fromInteger code))
-//                        }
-
-var charNum         = cs( "code" ,"<-", decimal
-                                      ,"<|>", do_( char_('o'), number(8, octDigit) )
-                                      ,"<|>", do_( char_('x'), number(16, hexDigit) )
-                        )
-                        ( ret(function(scope){ return toEnum(fromInteger(scope.code)) }) ).resolve();
-                        
-
-
-//
-//    charEsc         = choice (map parseEsc escMap)
-//                    where
-//                      parseEsc (c,code)     = do{ char c; return code }
-
-var charEsc         = choice(map(parseEsc, escMap))
-                    
-function parseEsc(tuple){
-    return do_( char_(tuple[0]), return_(tuple[1]) );
-}
-
-
-//
-//    charAscii       = choice (map parseAscii asciiMap)
-//                    where
-//                      parseAscii (asc,code) = try (do{ string asc; return code })
-
-var charAscii       = choice(map(parseAscii, asciiMap))
-
-function parseAscii(tuple){
-    return try_(do_( string(tuple[0]), return_(tuple[1]) ));
-}
-
-
-//
-//
-//    -- escape code tables
-//    escMap          = zip ("abfnrtv\\\"\'") ("\a\b\f\n\r\t\v\\\"\'")
-//    asciiMap        = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
-
-var escMap          = zip("abfnrtv\\\"\'", "\a\b\f\n\r\t\v\\\"\'");
-var asciiMap        = zip((ascii3codes + ascii2codes), (ascii3 + ascii2));
-
 
 
 var ascii2codes     = ["BS","HT","LF","VT","FF","CR","SO","SI","EM",
@@ -675,109 +507,193 @@ var ascii3          = ['\NUL','\SOH','\STX','\ETX','\EOT','\ENQ','\ACK',
                        '\SYN','\ETB','\CAN','\SUB','\ESC','\DEL'];
 
 
+//    -- escape code tables
+//    escMap          = zip ("abfnrtv\\\"\'") ("\a\b\f\n\r\t\v\\\"\'")
+//    asciiMap        = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
+
+var escMap          = zip("abfnrtv\\\"\'", "\a\b\f\n\r\t\v\\\"\'");
+var asciiMap        = zip((ascii3codes + ascii2codes), (ascii3 + ascii2));
+
+//
+//    charEsc         = choice (map parseEsc escMap)
+//                    where
+//                      parseEsc (c,code)     = do{ char c; return code }
+
+var charEsc         = choice(map(parseEsc, escMap))
+                    
+function parseEsc(tuple){
+    return do_( char_(tuple[0]), return_(tuple[1]) );
+}
+
+
+//    charAscii       = choice (map parseAscii asciiMap)
+//                    where
+//                      parseAscii (asc,code) = try (do{ string asc; return code })
+
+var charAscii       = choice(map(parseAscii, asciiMap))
+
+function parseAscii(tuple){
+    return try_(do_( string(tuple[0]), return_(tuple[1]) ));
+}
+
+
+//    stringLetter    = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
+
+var stringLetter    = satisfy(function(c){ return (c != '"') && (c != '\\') && (c > '\026') }); //TODO: last expr.
+
+
+//    escapeEmpty     = char '&'
+
+var escapeEmpty     = char_('&');
+
+
+//    escapeGap       = do{ many1 space
+//                        ; char '\\' <?> "end of string gap"
+//                        }
+
+var escapeGap       = cs( many1, space )
+                        ( char_, '\\' ,"<?>", "end of string gap").resolve();
+                        
+
+//    charNum         = do{ code <- decimal
+//                                  <|> do{ char 'o'; number 8 octDigit }
+//                                  <|> do{ char 'x'; number 16 hexDigit }
+//                        ; return (toEnum (fromInteger code))
+//                        }
+
+var charNum         = cs( "code" ,"<-", _decimal
+                                      ,"<|>", do_( char_('o'), number(8, octDigit) )
+                                      ,"<|>", do_( char_('x'), number(16, hexDigit) )
+                        )
+                        ( ret(function(scope){ return toEnum(fromInteger(scope.code)) }) ).resolve();
+
+
+//    charControl     = do{ char '^'
+//                        ; code <- upper
+//                        ; return (toEnum (fromEnum code - fromEnum 'A'))
+//                        }
+
+var charControl     = cs( char_, '^' )
+                        ( "code" ,"<-", upper )
+                        ( ret(function(scope){ return toEnum(fromEnum(scope.code) - fromEnum('A'))  }) ).resolve();
+ 
+
+//    -- escape codes
+//    escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
+//                    <?> "escape code"
+
+var escapeCode      = [charEsc ,"<|>", charNum ,"<|>", charAscii ,"<|>", charControl
+                    ,"<?>", "escape code"].resolve();
+
+
+//    charEscape      = do{ char '\\'; escapeCode }
+
+var charEscape        = do_(char_('\\'), escapeCode);
+
+
+
+//    charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
+
+var charLetter        = satisfy(function(c){ return (c != '\'') && (c != '\\') && (c > '\026') }); //TODO: last expr.
+
+
+//
+//    characterChar   = charLetter <|> charEscape
+//                    <?> "literal character"
+
+var characterChar    = [charLetter ,"<|>", charEscape
+                    ,"<?>", "literal character"].resolve();
+
+
+//    charLiteral     = lexeme (between (char '\'')
+//                                      (char '\'' <?> "end of character")
+//                                      characterChar )
+//                    <?> "character"
+
+var charLiteral        = [lexeme, [between, char_('\''), 
+                                    [char_('\'') ,"<?>", "end of character"],
+                                    characterChar]
+                    ,"<?>", "character"].resolve();
+
+
+//
+//    stringEscape    = do{ char '\\'
+//                        ;     do{ escapeGap  ; return Nothing }
+//                          <|> do{ escapeEmpty; return Nothing }
+//                          <|> do{ esc <- escapeCode; return (Just esc) }
+//                        }
+
+var stringEscape    = cs( char_, '\\')
+                        (         cs( escapeGap   ) ( return_, Maybe.Nothing )
+                          ,"<|>", cs( escapeEmpty ) ( return_, Maybe.Nothing )
+                          ,"<|>", cs( "esc" ,"<-", escapeCode) ( returnCall, Maybe.Just, "esc" )
+                        ).resolve();
+
+
+//    stringChar      =   do{ c <- stringLetter; return (Just c) }
+//                    <|> stringEscape
+//                    <?> "string character"
+
+var stringChar      = [cs( "c" ,"<-", stringLetter )
+                         ( returnCall, Maybe.Just, "c" )
+                      ,"<|>", stringEscape
+                      ,"<?>", "string character"].resolve();
+
+
+//    stringLiteral   = lexeme (
+//                      do{ str <- between (char '"')
+//                                         (char '"' <?> "end of string")
+//                                         (many stringChar)
+//                        ; return (foldr (maybe id (:)) "" str)
+//                        }
+//                      <?> "literal string")
+
+var stringLiteral   = lexeme(
+                          [ cs( "str", "<-", between, char_('"'),
+                                                      [char_('"') ,"<?>", "end of string"],
+                                                      [many, stringChar]
+                               )
+                               (ret, function(scope){ return foldr(maybe(id, (cons)), "", scope.str) })
+                          ,"<?>", "literal string"].resolve()
+                      );
+
+
+
 //    -----------------------------------------------------------
 //    -- Numbers
 //    -----------------------------------------------------------
-//    naturalOrFloat  = lexeme (natFloat) <?> "number"
-//
-//    float           = lexeme floating   <?> "float"
-//    integer         = lexeme int        <?> "integer"
-//    natural         = lexeme nat        <?> "natural"
-
-var naturalOrFloat  = [lexeme, natFloat   ,"<?>", "number" ].resolve();
-
-var float_          = [lexeme, floating   ,"<?>", "float"  ].resolve();
-var integer         = [lexeme, int_       ,"<?>", "integer"].resolve();
-var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 
 
+//    number base baseDigit
+//        = do{ digits <- many1 baseDigit
+//            ; let n = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 digits
+//            ; seq n (return n)
+//            }
 
-//
-//
-//    -- floats
-//    floating        = do{ n <- decimal
-//                        ; fractExponent n
-//                        }
-
-var floating        = cs( "n" ,"<-", decimal)
-                        ( function(state, scope){ return fractExponent(scope.n)(state, scope) }).resolve();
-                        
-
-//
-//
-//    natFloat        = do{ char '0'
-//                        ; zeroNumFloat
-//                        }
-//                      <|> decimalFloat
-
-var natFloat        = [do_( char_('0'),
-                            zeroNumFloat
-                          )
-                      ,"<|>", decimalFloat].resolve();
-
-//
-//    zeroNumFloat    =  do{ n <- hexadecimal <|> octal
-//                         ; return (Left n)
-//                         }
-//                    <|> decimalFloat
-//                    <|> fractFloat 0
-//                    <|> return (Left 0)
+function number(base, baseDigit){ 
+    return cs( "digits" ,"<-", many1, baseDigit )
+		     ( function(state, scope){
+					scope.n = foldl(function(x, d){
+								  return base * x + toInteger(digitToInt(d))
+							  }, 0, scope.digits);
+			 })
+             ( function(state, scope){
+					return seq(scope.n, return_(scope.n))(state, scope);
+			 }).resolve();
+}
 
 
-var zeroNumFloat    =  [ cs( "n" ,"<-", hexadecimal ,"<|>", octal )
-                           ( returnCall, Either.Left, "n" )
-                       ,"<|>", decimalFloat
-                       ,"<|>", fractFloat(0)
-                       ,"<|>", return_, Either.Left(0)
-	                   ].resolve();
+//    decimal         = number 10 digit
+//    hexadecimal     = do{ oneOf "xX"; number 16 hexDigit }
+//    octal           = do{ oneOf "oO"; number 8 octDigit  }
+
+function _decimal(st, sc){ return decimal(st, sc) }
+
+var decimal         = number(10, digit);
+var hexadecimal     = cs( oneOf, "xX" ) ( number, 16, hexDigit ).resolve();
+var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
 
 
-//
-//    decimalFloat    = do{ n <- decimal
-//                        ; option (Left n)
-//                                 (fractFloat n)
-//                        }
-
-var decimalFloat    = cs( "n" ,"<-", decimal )
-                        ( function(state, scope){ 
-	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope);
-                        }).resolve();
-
-
-
-//
-//    fractFloat n    = do{ f <- fractExponent n
-//                        ; return (Right f)
-//                        }
-
-
-var fractFloat      = function(n){
-                          return cs( "f" ,"<-", fractExponent, n)
-                                   ( returnCall, Either.Right, "f").resolve();
-                      }
-
-
-
-//
-//    fractExponent n = do{ fract <- fraction
-//                        ; expo  <- option 1.0 exponent'
-//                        ; return ((fromInteger n + fract)*expo)
-//                        }
-//                    <|>
-//                      do{ expo <- exponent'
-//                        ; return ((fromInteger n)*expo)
-//                        }
-
-var fractExponent = function(n){
-						return [
-							  cs( "fract" ,"<-", fraction )
-								( "expo"  ,"<-", option, 1.0, exponent_ )
-								( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
-							  ,"<|>",
-							  cs( "expo" <- exponent_ )
-								( ret, function(scope){ return fromInteger(n) * scope.expo })
-						].resolve();
-					}
 
 //
 //    fraction        = do{ char '.'
@@ -795,6 +711,7 @@ var fraction        = [ cs( char_, '.')
 function op(d, f){
 	return (f + fromIntegral(digitToInt(d))) / 10.0
 }
+
 
 //
 //    exponent'       = do{ oneOf "eE"
@@ -818,17 +735,89 @@ function power(e){
 	return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
 }
 
-//
-//
-//    -- integers and naturals
-//    int             = do{ f <- lexeme sign
-//                        ; n <- nat
-//                        ; return (f n)
+
+
+//    fractExponent n = do{ fract <- fraction
+//                        ; expo  <- option 1.0 exponent'
+//                        ; return ((fromInteger n + fract)*expo)
+//                        }
+//                    <|>
+//                      do{ expo <- exponent'
+//                        ; return ((fromInteger n)*expo)
 //                        }
 
-var int_            = cs( "f" ,"<-", lexeme, sign )
-                        ( "n" ,"<-", nat )
-                        ( ret, function(scope){ return scope.f(scope.n) })
+var fractExponent = function(n){
+						return [
+							  cs( "fract" ,"<-", fraction )
+								( "expo"  ,"<-", option, 1.0, exponent_ )
+								( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
+							  ,"<|>",
+							  cs( "expo" <- exponent_ )
+								( ret, function(scope){ return fromInteger(n) * scope.expo })
+						].resolve();
+					}
+
+//    -- floats
+//    floating        = do{ n <- decimal
+//                        ; fractExponent n
+//                        }
+
+var floating        = cs( "n" ,"<-", decimal)
+                        ( function(state, scope){ return fractExponent(scope.n)(state, scope) }).resolve();
+
+
+//    fractFloat n    = do{ f <- fractExponent n
+//                        ; return (Right f)
+//                        }
+
+
+var fractFloat      = function(n){
+                          return cs( "f" ,"<-", fractExponent, n)
+                                   ( returnCall, Either.Right, "f").resolve();
+                      }
+
+
+//
+//    decimalFloat    = do{ n <- decimal
+//                        ; option (Left n)
+//                                 (fractFloat n)
+//                        }
+
+var decimalFloat    = cs( "n" ,"<-", decimal )
+                        ( function(state, scope){ 
+	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope);
+                        }).resolve();
+
+
+//
+//    zeroNumFloat    =  do{ n <- hexadecimal <|> octal
+//                         ; return (Left n)
+//                         }
+//                    <|> decimalFloat
+//                    <|> fractFloat 0
+//                    <|> return (Left 0)
+
+
+var zeroNumFloat    =  [ cs( "n" ,"<-", hexadecimal ,"<|>", octal )
+                           ( returnCall, Either.Left, "n" )
+                       ,"<|>", decimalFloat
+                       ,"<|>", fractFloat(0)
+                       ,"<|>", return_, Either.Left(0)
+	                   ].resolve();
+
+
+
+
+//    natFloat        = do{ char '0'
+//                        ; zeroNumFloat
+//                        }
+//                      <|> decimalFloat
+
+var natFloat        = [do_( char_('0'),
+                            zeroNumFloat
+                          )
+                      ,"<|>", decimalFloat].resolve();
+
 
 
 //
@@ -841,13 +830,7 @@ var sign            = [[char_, '-' ,">>", return_, negate]
                        ,"<|>", return_, id
                       ].resolve();
 
-//
-//    nat             = zeroNumber <|> decimal
 
-var nat             = [zeroNumber ,"<|>", decimal].resolve();
-
-
-//
 //    zeroNumber      = do{ char '0'
 //                        ; hexadecimal <|> octal <|> decimal <|> return 0
 //                        }
@@ -858,40 +841,42 @@ var zeroNumber      = [ cs( char_, '0')
                       ,"<?>", ""].resolve();
 
 
+//    nat             = zeroNumber <|> decimal
+
+var nat             = [zeroNumber ,"<|>", decimal].resolve();
+
+//    -- integers and naturals
+//    int             = do{ f <- lexeme sign
+//                        ; n <- nat
+//                        ; return (f n)
+//                        }
+
+var int_            = cs( "f" ,"<-", lexeme, sign )
+                        ( "n" ,"<-", nat )
+                        ( ret, function(scope){ return scope.f(scope.n) })
+
+
+
+//    naturalOrFloat  = lexeme (natFloat) <?> "number"
 //
-//    decimal         = number 10 digit
-//    hexadecimal     = do{ oneOf "xX"; number 16 hexDigit }
-//    octal           = do{ oneOf "oO"; number 8 octDigit  }
+//    float           = lexeme floating   <?> "float"
+//    integer         = lexeme int        <?> "integer"
+//    natural         = lexeme nat        <?> "natural"
 
-var decimal         = number(10, digit);
-var hexadecimal     = cs( oneOf, "xX" ) ( number, 16, hexDigit ).resolve();
-var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
+var naturalOrFloat  = [lexeme, natFloat   ,"<?>", "number" ].resolve();
 
-
-//
-//    number base baseDigit
-//        = do{ digits <- many1 baseDigit
-//            ; let n = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 digits
-//            ; seq n (return n)
-//            }
-
-function number(base, baseDigit){ 
-    return cs( "digits" ,"<-", many1, baseDigit )
-		     ( function(state, scope){
-					scope.n = foldl(function(x, d){
-								  return base * x + toInteger(digitToInt(d))
-							  }, 0, scope.digits);
-			 })
-             ( function(state, scope){
-					return seq(scope.n, return_(scope.n))(state, scope);
-			 }).resolve();
-}
+var float_          = [lexeme, floating   ,"<?>", "float"  ].resolve();
+var integer         = [lexeme, int_       ,"<?>", "integer"].resolve();
+var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 
 
-//
+
+
 //    -----------------------------------------------------------
 //    -- Operators & reserved ops
 //    -----------------------------------------------------------
+
+
 //    reservedOp name =
 //        lexeme $ try $
 //        do{ string name
@@ -906,7 +891,21 @@ function reservedOp(name){
 			].resolve();
 }
 
-//
+
+//    oper =
+//        do{ c <- (opStart languageDef)
+//          ; cs <- many (opLetter languageDef)
+//          ; return (c:cs)
+//          }
+//        <?> "operator"
+
+var oper =
+        [ cs( "c"  ,"<-", languageDef.opStart )
+            ( "cs" ,"<-", many, languageDef.opLetter )
+            ( returnCall, cons, "c", "cs" )
+         ,"<?>", "operator"].resolve();
+
+
 //    operator =
 //        lexeme $ try $
 //        do{ name <- oper
@@ -925,21 +924,6 @@ var operator =
 
 
 //
-//    oper =
-//        do{ c <- (opStart languageDef)
-//          ; cs <- many (opLetter languageDef)
-//          ; return (c:cs)
-//          }
-//        <?> "operator"
-
-var oper =
-        [ cs( "c"  ,"<-", languageDef.opStart )
-            ( "cs" ,"<-", many, languageDef.opLetter )
-            ( returnCall, cons, "c", "cs" )
-         ,"<?>", "operator"].resolve();
-
-
-//
 //    isReservedOp name =
 //        isReserved (sort (reservedOpNames languageDef)) name
 
@@ -947,11 +931,12 @@ function isReservedOp(name){
         return isReserved( sort( languageDef.reservedOpNames ), name);
 }
 
-//
-//
+
 //    -----------------------------------------------------------
 //    -- Identifiers & Reserved words
 //    -----------------------------------------------------------
+
+
 //    reserved name =
 //        lexeme $ try $
 //        do{ caseString name
@@ -966,7 +951,6 @@ function reserved(name){
 }
 
 
-//
 //    caseString name
 //        | caseSensitive languageDef  = string name
 //        | otherwise               = do{ walk name; return name }
@@ -997,8 +981,7 @@ function caseString(name){
 
 }
 
-//
-//
+
 //    identifier =
 //        lexeme $ try $
 //        do{ name <- ident
@@ -1014,8 +997,8 @@ var identifier =
 					return (isReservedName(scope.name) ? 
 						unexpected("reserved word " + scope.name) : return_(scope.name) )(state, scope);
           })].resolve();
-//
-//
+
+
 //    ident
 //        = do{ c <- identStart languageDef
 //            ; cs <- many (identLetter languageDef)
@@ -1029,13 +1012,12 @@ var ident
               ( returnCall, cons, "c", "cs" )
            ,"<?>", "identifier"].resolve();
 
-//
+
 //    isReservedName name
 //        = isReserved theReservedNames caseName
 //        where
 //          caseName      | caseSensitive languageDef  = name
 //                        | otherwise               = map toLower name
-
 
 function isReservedName(name){
 	var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
@@ -1043,8 +1025,7 @@ function isReservedName(name){
 	return isReserved(theReservedNames, caseName);
 }
 
-//
-//
+
 //    isReserved names name
 //        = scan names
 //        where
@@ -1053,7 +1034,6 @@ function isReservedName(name){
 //                            LT  -> scan rs
 //                            EQ  -> True
 //                            GT  -> False
-
 
 function isReserved(names, name){
 	function scan(rs){
@@ -1072,7 +1052,6 @@ function isReserved(names, name){
 	return isReserved(theReservedNames, caseName);
 }
 
-//
 //    theReservedNames
 //        | caseSensitive languageDef  = sortedNames
 //        | otherwise               = map (map toLower) sortedNames
@@ -1080,20 +1059,23 @@ function isReserved(names, name){
 //          sortedNames   = sort (reservedNames languageDef)
 
 var sortedNames = sort(languageDef.reservedNames);
-var theReservedNames = languageDef.caseSensitive ? sortedNames : map( function(str){ return str.toLowerCase() }, sortedNames )
+var theReservedNames = languageDef.caseSensitive ? 
+							sortedNames : 
+							map( function(str){ return str.toLowerCase() }, sortedNames );
 
-//
-//
-//
+
+
 //    -----------------------------------------------------------
 //    -- White space & symbols
 //    -----------------------------------------------------------
+
 //    symbol name
 //        = lexeme (string name)
 
 function symbol(name){
 	return lexeme(string(name));
 }
+
 
 //
 //    lexeme p
@@ -1103,28 +1085,6 @@ function lexeme(p){
 	return do_(bind("x", p), whiteSpace, ret("x") );
 }
 
-//
-//
-//    whiteSpace
-//        | noLine && noMulti  = skipMany (simpleSpace <?> "")
-//        | noLine             = skipMany (simpleSpace <|> multiLineComment <?> "")
-//        | noMulti            = skipMany (simpleSpace <|> oneLineComment <?> "")
-//        | otherwise          = skipMany (simpleSpace <|> oneLineComment <|> multiLineComment <?> "")
-//        where
-//          noLine  = null (commentLine languageDef)
-//          noMulti = null (commentStart languageDef)
-
-
-var noLine   = null_(languageDef.commentLine);
-var noMulti  = null_(languageDef.commentStart);
-
-var whiteSpace = (
-	(noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
-	noLine				? [skipMany, [simpleSpace ,"<|>", multiLineComment ,"<?>", ""]] :
-	noMulti				? [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<?>", ""]] :
-						  [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<|>", multiLineComment ,"<?>", ""]]
-	).resolve();
-
 
 //
 //
@@ -1132,7 +1092,7 @@ var whiteSpace = (
 //        skipMany1 (satisfy isSpace)
 
 var simpleSpace =
-        skipMany1(satisfy, isSpace);
+        skipMany1(satisfy(isSpace));
 
 
 //
@@ -1148,8 +1108,52 @@ var oneLineComment =
           ( return_, null).resolve();
 
 
-
 //
+//    inCommentSingle
+//        =   do{ try (string (commentEnd languageDef)); return () }
+//        <|> do{ skipMany1 (noneOf startEnd)         ; inCommentSingle }
+//        <|> do{ oneOf startEnd                      ; inCommentSingle }
+//        <?> "end of comment"
+//        where
+//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+
+var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
+
+var inCommentSingle
+            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
+        ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentSingle )
+        ,"<|>", do_( oneOf(startEnd)                       , _inCommentSingle )
+        ,"<?>", "end of comment"].resolve();
+
+function _inCommentSingle(st, sc){ return inCommentSingle(st, sc) }
+
+
+//    inCommentMulti
+//        =   do{ try (string (commentEnd languageDef)) ; return () }
+//        <|> do{ multiLineComment                     ; inCommentMulti }
+//        <|> do{ skipMany1 (noneOf startEnd)          ; inCommentMulti }
+//        <|> do{ oneOf startEnd                       ; inCommentMulti }
+//        <?> "end of comment"
+//        where
+//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+
+var inCommentMulti
+            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
+        ,"<|>", do_( multiLineComment                      , _inCommentMulti )
+        ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentMulti )
+        ,"<|>", do_( oneOf(startEnd)                       , _inCommentMulti )
+        ,"<?>", "end of comment"].resolve();
+
+function _inCommentMulti(st, sc){ return inCommentMulti(st, sc) }
+
+
+//    inComment
+//        | nestedComments languageDef  = inCommentMulti
+//        | otherwise                = inCommentSingle
+
+var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
+
+
 //    multiLineComment =
 //        do { try (string (commentStart languageDef))
 //           ; inComment
@@ -1160,82 +1164,60 @@ var multiLineComment =
            , inComment)
 
 
-//
-//    inComment
-//        | nestedComments languageDef  = inCommentMulti
-//        | otherwise                = inCommentSingle
-
-var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
-
-//
-//    inCommentMulti
-//        =   do{ try (string (commentEnd languageDef)) ; return () }
-//        <|> do{ multiLineComment                     ; inCommentMulti }
-//        <|> do{ skipMany1 (noneOf startEnd)          ; inCommentMulti }
-//        <|> do{ oneOf startEnd                       ; inCommentMulti }
-//        <?> "end of comment"
+//    whiteSpace
+//        | noLine && noMulti  = skipMany (simpleSpace <?> "")
+//        | noLine             = skipMany (simpleSpace <|> multiLineComment <?> "")
+//        | noMulti            = skipMany (simpleSpace <|> oneLineComment <?> "")
+//        | otherwise          = skipMany (simpleSpace <|> oneLineComment <|> multiLineComment <?> "")
 //        where
-//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+//          noLine  = null (commentLine languageDef)
+//          noMulti = null (commentStart languageDef)
 
-var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
+var noLine   = null_(languageDef.commentLine);
+var noMulti  = null_(languageDef.commentStart);
 
-var inCommentMulti
-            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
-        ,"<|>", do_( multiLineComment                      , inCommentMulti )
-        ,"<|>", do_( skipMany1(noneOf (startEnd))          , inCommentMulti )
-        ,"<|>", do_( oneOf(startEnd)                       , inCommentMulti )
-        ,"<?>", "end of comment"].resolve();
+var whiteSpace = (
+	(noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
+	noLine				? [skipMany, [simpleSpace ,"<|>", multiLineComment ,"<?>", ""]] :
+	noMulti				? [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<?>", ""]] :
+						  [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<|>", multiLineComment ,"<?>", ""]]
+	).resolve();
 
 
-
-//
-//    inCommentSingle
-//        =   do{ try (string (commentEnd languageDef)); return () }
-//        <|> do{ skipMany1 (noneOf startEnd)         ; inCommentSingle }
-//        <|> do{ oneOf startEnd                      ; inCommentSingle }
-//        <?> "end of comment"
-//        where
-//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
-
-var inCommentMulti
-            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
-        ,"<|>", do_( skipMany1(noneOf (startEnd))          , inCommentSingle )
-        ,"<|>", do_( oneOf(startEnd)                       , inCommentSingle )
-        ,"<?>", "end of comment"].resolve();
 
 
     return GenTokenParser.TokenParser(record, {
-        identifier: identifier,
-        reserved: reserved,
-        operator: operator,
-        reservedOp: reservedOp,
+        identifier : identifier,
+        reserved   : reserved,
+        operator   : operator,
+        reservedOp : reservedOp,
         
-        charLiteral: charLiteral,
-        stringLiteral: stringLiteral,
-        natural: natural,
-        integer: integer,
-        float_: float_,
-        naturalOrFloat: naturalOrFloat,
-        decimal: decimal,
-        hexadecimal: hexadecimal,
-        octal: octal,
+        charLiteral    : charLiteral,
+        stringLiteral  : stringLiteral,
+        natural        : natural,
+        integer        : integer,
+        float_         : float_,
+        naturalOrFloat : naturalOrFloat,
+        decimal        : decimal,
+        hexadecimal    : hexadecimal,
+        octal          : octal,
         
-        symbol: symbol,
-        lexeme: lexeme,
-        whiteSpace: whiteSpace,
+        symbol     : symbol,
+        lexeme     : lexeme,
+        whiteSpace : whiteSpace,
         
-        parens: parens,
-        braces: braces,
-        angles: angles,
-        brackets: brackets,
-        squares: squares,
-        semi: semi,
-        comma: comma,
-        colon: colon,
-        dot: dot,
-        semiSep: semiSep,
-        semiSep1: semiSep1,
-        commaSep: commaSep,
-        commaSep1: commaSep1
+        parens     : parens,
+        braces     : braces,
+        angles     : angles,
+        brackets   : brackets,
+        squares    : brackets,
+        semi       : semi,
+        comma      : comma,
+        colon      : colon,
+        dot        : dot,
+        semiSep    : semiSep,
+        semiSep1   : semiSep1,
+        commaSep   : commaSep,
+        commaSep1  : commaSep1
     });
 }
