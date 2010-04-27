@@ -25,10 +25,36 @@ function getNthKey(obj, nth) {
 }
 
 
+function ADT(){}
+
+function adtToString(type){
+	return function(){
+		var acc=[], rec = this._recordset;
+		if(!isArray(rec)){
+			for(var name in rec)
+			acc.push(name + " :: " + (type ? (rec[name].name || rec[name]) : this[name]) );
+			var indent = replicate(this._dataConstructor.length + 2," ").join("");
+			acc = "{" + acc.join("\n" + indent + ",") + "\n" + indent +"}";
+		}else{
+			for(var i = 0; i in this; i++)
+			acc.push(type ? (rec[i].name || rec[i]) : this[i]);
+			acc = acc.join(" ");
+		}
+		return  this._dataConstructor + " " + acc;
+	}
+}
+
+ADT.prototype.toString = adtToString();
+
+ADT.prototype.dataConstructorToString = adtToString(true);
+
+
 function data(type, constr){
 	if(type.constructors)
 		throw "Type constructor has been already defined: '" + type.name + "'";
 	type.constructors = constr;
+
+	type.prototype = new ADT;
 
 	for(var i = 0, l = constr.length; i < l; ++i){
 		var single = typeof constr[i] != "object",
@@ -49,6 +75,10 @@ function data(type, constr){
 				that = new type,
 				i = 0;
 			
+			that.constructor = type;
+			that._recordset = (recordDef && fields[0]) || fields;
+			that._dataConstructor = constr;
+
 			that.update = function(newRecords){
 				var obj = {};
 				for(var n in fields[0]){
@@ -57,7 +87,7 @@ function data(type, constr){
 						obj[n] = newRecords[n];
 				}
 				return create(record, obj);
-			}
+			};
 
 			that[constr] = true;
 
