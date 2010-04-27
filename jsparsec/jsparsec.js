@@ -303,7 +303,7 @@ function adtToString(type){
 
 ADT.prototype.toString = adtToString();
 
-ADT.prototype.constructorToString = adtToString(true);
+ADT.prototype.dataConstructorToString = adtToString(true);
 
 
 function data(type, constr){
