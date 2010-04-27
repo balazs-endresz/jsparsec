@@ -32,10 +32,10 @@
 //-- contains some default definitions.
 //
 
-//TODO: extend Pareser and Array types (not implemented yet in Haskell.js)
+//TODO: extend Parser and Array types (not implemented yet in Haskell.js)
 function GenLanguageDef(){}
 
-data(GenLanguageDef, ["LanguageDef", {
+data(GenLanguageDef, [["LanguageDef", {
 
 //data GenLanguageDef s u m
 //    = LanguageDef { 
@@ -106,7 +106,7 @@ caseSensitive: Boolean
 //
 //    }
 
-}]);
+}]]);
 
 
 
@@ -122,7 +122,7 @@ caseSensitive: Boolean
 
 function GenTokenParser(){}
 
-data(GenTokenParser, ["TokenParser", {
+data(GenTokenParser, [["TokenParser", {
 
 //data GenTokenParser s u m
 //    = TokenParser {
@@ -206,7 +206,7 @@ integer: Parser,
 //        -- defined in the Haskell report. 
 //
 //        float            :: ParsecT s u m Double,
-float: Parser,
+float_: Parser,
 //
 //        -- | This lexeme parser parses either 'natural' or a 'float'.
 //        -- Returns the value of the number. This parsers deals with
@@ -350,7 +350,7 @@ commaSep: Function,
 //        commaSep1        :: forall a . ParsecT s u m a -> ParsecT s u m [a]
 commaSep1: Function
 //    }
-}]);
+}]]);
 
 //
 //-----------------------------------------------------------
@@ -902,7 +902,7 @@ function reservedOp(name){
 
 	return [lexeme ,"$", try_ ,"$",
 				cs( string, name ) 
-				  ( notFollowedBy, [opLetter, languageDef] ,"<?>", "end of " + name )
+				  ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
 			].resolve();
 }
 
@@ -933,8 +933,8 @@ var operator =
 //        <?> "operator"
 
 var oper =
-        [ cs( "c"  ,"<-", opStart, languageDef )
-            ( "cs" ,"<-", many(opLetter, languageDef) )
+        [ cs( "c"  ,"<-", languageDef.opStart )
+            ( "cs" ,"<-", many, languageDef.opLetter )
             ( returnCall, cons, "c", "cs" )
          ,"<?>", "operator"].resolve();
 
@@ -944,7 +944,7 @@ var oper =
 //        isReserved (sort (reservedOpNames languageDef)) name
 
 function isReservedOp(name){
-        return isReserved( sort( reservedOpNames(languageDef) ), name);
+        return isReserved( sort( languageDef.reservedOpNames ), name);
 }
 
 //
@@ -961,7 +961,7 @@ function isReservedOp(name){
 function reserved(name){
 	return [lexeme ,"$", try_ ,"$",
 			cs( caseString, name )
-			  ( notFollowedBy, [identLetter, languageDef] ,"<?>", "end of " + name )
+			  ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
 			].resolve();
 }
 
@@ -993,7 +993,7 @@ function caseString(name){
 							char_(c);
 	}
 
-	return caseSensitive(languageDef) ? string(name) : do_( walk(name), return_(name) );
+	return languageDef.caseSensitive ? string(name) : do_( walk(name), return_(name) );
 
 }
 
@@ -1024,8 +1024,8 @@ var identifier =
 //        <?> "identifier"
 
 var ident
-        = [ cs( "c"  ,"<-", identStart, languageDef )
-              ( "cs" ,"<-", many, [identLetter, languageDef] )
+        = [ cs( "c"  ,"<-", languageDef.identStart )
+              ( "cs" ,"<-", many, languageDef.identLetter )
               ( returnCall, cons, "c", "cs" )
            ,"<?>", "identifier"].resolve();
 
@@ -1038,7 +1038,7 @@ var ident
 
 
 function isReservedName(name){
-	var caseName = caseSensitive(languageDef) ? name : map(toLower, name);
+	var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
 
 	return isReserved(theReservedNames, caseName);
 }
@@ -1067,7 +1067,7 @@ function isReserved(names, name){
 				ord.GT ? false : null;
 	}
 
-	var caseName = caseSensitive(languageDef) ? name : map(toLower, name);
+	var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
 
 	return isReserved(theReservedNames, caseName);
 }
@@ -1079,8 +1079,8 @@ function isReserved(names, name){
 //        where
 //          sortedNames   = sort (reservedNames languageDef)
 
-var sortedNames = sort(reservedNames, languageDef);
-var theReservedNames = caseSensitive(languageDef) ? sortedNames : map( map(toLower), sortedNames )
+var sortedNames = sort(languageDef.reservedNames);
+var theReservedNames = languageDef.caseSensitive ? sortedNames : map( function(str){ return str.toLowerCase() }, sortedNames )
 
 //
 //
@@ -1115,8 +1115,8 @@ function lexeme(p){
 //          noMulti = null (commentStart languageDef)
 
 
-var noLine   = null_(commentLine, languageDef);
-var noMulti  = null_(commentStart, languageDef);
+var noLine   = null_(languageDef.commentLine);
+var noMulti  = null_(languageDef.commentStart);
 
 var whiteSpace = (
 	(noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
@@ -1143,7 +1143,7 @@ var simpleSpace =
 //          }
 
 var oneLineComment =
-        cs( try_(string(commentLine(languageDef))) )
+        cs( try_(string(languageDef.commentLine)) )
           ( skipMany, satisfy(function(c){ return c != '\n' }) )
           ( return_, null).resolve();
 
@@ -1156,7 +1156,7 @@ var oneLineComment =
 //           }
 
 var multiLineComment =
-        do_( try_ (string (commentStart (languageDef)))
+        do_( try_ (string (languageDef.commentStart))
            , inComment)
 
 
@@ -1165,7 +1165,7 @@ var multiLineComment =
 //        | nestedComments languageDef  = inCommentMulti
 //        | otherwise                = inCommentSingle
 
-var inComment = nestedComments(languageDef) ? inCommentMulti : inCommentSingle;
+var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
 
 //
 //    inCommentMulti
@@ -1177,10 +1177,10 @@ var inComment = nestedComments(languageDef) ? inCommentMulti : inCommentSingle;
 //        where
 //          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
 
-var startEnd = nub( commentEnd(languageDef) + commentStart(languageDef) );
+var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
 
 var inCommentMulti
-            = [ do_( try_ (string (commentEnd (languageDef))) , return_(null) )
+            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
         ,"<|>", do_( multiLineComment                      , inCommentMulti )
         ,"<|>", do_( skipMany1(noneOf (startEnd))          , inCommentMulti )
         ,"<|>", do_( oneOf(startEnd)                       , inCommentMulti )
@@ -1198,7 +1198,7 @@ var inCommentMulti
 //          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
 
 var inCommentMulti
-            = [ do_( try_ (string (commentEnd (languageDef))) , return_(null) )
+            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
         ,"<|>", do_( skipMany1(noneOf (startEnd))          , inCommentSingle )
         ,"<|>", do_( oneOf(startEnd)                       , inCommentSingle )
         ,"<?>", "end of comment"].resolve();

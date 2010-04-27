@@ -106,7 +106,73 @@ function lastIndexOf(arr, value) {
     return -1;
 }
 
+//-- | 'zip' takes two lists and returns a list of corresponding pairs.
+//-- If one input list is short, excess elements of the longer list are
+//-- discarded.
+//zip :: [a] -> [b] -> [(a,b)]
+//zip (a:as) (b:bs) = (a,b) : zip as bs
+//zip _      _      = []
+function zip(arr1, arr2){
+	var res = [], i = 0, l = Math.min(arr1.length, arr2.length);
+    for (; i < l; ++i)
+        res[i] = [arr1[i], arr2[i]];
+    return res;
+}
 
+function sort(arr) {
+	var type = typeof arr;
+
+	if(type == "object")
+		return arr.sort();
+
+	if(type == "string")
+		return slice(arr).sort().join("");
+}
+
+//-- | The 'nub' function removes duplicate elements from a list.
+//-- In particular, it keeps only the first occurrence of each element.
+//-- (The name 'nub' means \`essence\'.)
+//-- It is a special case of 'nubBy', which allows the programmer to supply
+//-- their own equality test.
+//nub                     :: (Eq a) => [a] -> [a]
+//#ifdef USE_REPORT_PRELUDE
+//nub                     =  nubBy (==)
+//#else
+//-- stolen from HBC
+//nub l                   = nub' l []             -- '
+//  where
+//    nub' [] _           = []                    -- '
+//    nub' (x:xs) ls                              -- '
+//        | x `elem` ls   = nub' xs ls            -- '
+//        | otherwise     = x : nub' xs (x:ls)    -- '
+//#endif
+
+function nub(arr, ls){
+	ls = ls === undef ? [] : ls;
+	
+	var x  = arr[0],
+		xs = slice(arr, 1);
+	
+	return !arr.length ? [] :
+			elem(x, ls) ? nub(xs, ls) : 
+			cons(x, nub(xs, cons(x,ls)) );
+}
+
+
+//-- | The 'maybe' function takes a default value, a function, and a 'Maybe'
+//-- value.  If the 'Maybe' value is 'Nothing', the function returns the
+//-- default value.  Otherwise, it applies the function to the value inside
+//-- the 'Just' and returns the result.
+//maybe :: b -> (a -> b) -> Maybe a -> b
+//maybe n _ Nothing  = n
+//maybe _ f (Just x) = f x
+
+function maybe(n, f, m){
+	if(m.Nothing)
+		return n;
+	if(m.Just)
+		return f(m[0]);
+}
 
 function extend(a, b){
 	for(var key in b)
@@ -179,6 +245,15 @@ function isOctDigit(c){
 }
 
 
+function digitToInt(c){
+	if(c.length != 1)
+		throw "digitToInt accepts only a single character";
+
+	if(!isHexDigit(c))
+		throw "Char.digitToInt: not a digit " + c;
+
+	return parseInt(c, 16);
+}
 
 // -------------------------------------------------
 // Algebraic Data Types
@@ -225,16 +300,28 @@ function data(type, constr){
 
 	function value(constr, fields){
 		var recordDef = fields && typeof fields[0] == "object";
-		return function(_isrecord, rec){
+		function create(_isrecord, rec){
 			var isrecord = (_isrecord instanceof Record),
 				args = isrecord ? rec : slice(arguments),
 				that = new type,
 				i = 0;
+			
+			that.update = function(newRecords){
+				var obj = {};
+				for(var n in fields[0]){
+					obj[n] = this[n]
+					if(n in newRecords)
+						obj[n] = newRecords[n];
+				}
+				return create(record, obj);
+			}
 
 			that[constr] = true;
+
 			if(args !== undef)
 				for(var name in args)
 					if(args.hasOwnProperty(name) && name != constr){
+
 						if(isrecord && fields && recordDef)
 							if( !(name in fields[0]))
 								throw "The accessor '" + name + "' is not defined for the data constructor '" + constr + "'";
@@ -243,16 +330,18 @@ function data(type, constr){
 						var arg = (args[i] !== undefined) ? args[i] : args[recName];
 
 						var check = recordDef ? fields[0][recName] : fields[i];
-						if(check.name && ((check != arg.constructor) || !(arg instanceof check) ))
+						if(check.name && !((check == arg.constructor) || (arg instanceof check) ))
 							throw "Type mismatch: expecting '" + check.name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
 
 						that[recName] = that[i] = that[name] = args[name];
 						i++;
+
 					}else if(name == constr)
 						throw "Accessor has the same name as the data constructor: '" + constr + "'";
 
 			return that;
-		};
+		}
+		return create;
 	}
 }
 
@@ -301,10 +390,21 @@ data Type a = Constr1 Number a
 //Type.Constr2.Constr2 == true
 //Type.Constr2 == Type.Constr2
 
+
+//record update (creates a new object):
+
+//function T(){}
+//data(T, [["C", {a: String,b: String}]]);
+//T.C("2","3").update({a:"4"}).a == "4"
+
 function Maybe(){}
 data(Maybe, [["Just", "a"], "Nothing"]);
 
+function Ordering(){}
+data(Ordering, ["LT", "EQ", "GT"])
 
+function Either(){}
+data(Either, [["Left", "a"], ["Right", "b"]])
 
 // -------------------------------------------------
 // Operators

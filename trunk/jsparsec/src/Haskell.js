@@ -43,16 +43,28 @@ function data(type, constr){
 
 	function value(constr, fields){
 		var recordDef = fields && typeof fields[0] == "object";
-		return function(_isrecord, rec){
+		function create(_isrecord, rec){
 			var isrecord = (_isrecord instanceof Record),
 				args = isrecord ? rec : slice(arguments),
 				that = new type,
 				i = 0;
+			
+			that.update = function(newRecords){
+				var obj = {};
+				for(var n in fields[0]){
+					obj[n] = this[n]
+					if(n in newRecords)
+						obj[n] = newRecords[n];
+				}
+				return create(record, obj);
+			}
 
 			that[constr] = true;
+
 			if(args !== undef)
 				for(var name in args)
 					if(args.hasOwnProperty(name) && name != constr){
+
 						if(isrecord && fields && recordDef)
 							if( !(name in fields[0]))
 								throw "The accessor '" + name + "' is not defined for the data constructor '" + constr + "'";
@@ -61,16 +73,18 @@ function data(type, constr){
 						var arg = (args[i] !== undefined) ? args[i] : args[recName];
 
 						var check = recordDef ? fields[0][recName] : fields[i];
-						if(check.name && ((check != arg.constructor) || !(arg instanceof check) ))
+						if(check.name && !((check == arg.constructor) || (arg instanceof check) ))
 							throw "Type mismatch: expecting '" + check.name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
 
 						that[recName] = that[i] = that[name] = args[name];
 						i++;
+
 					}else if(name == constr)
 						throw "Accessor has the same name as the data constructor: '" + constr + "'";
 
 			return that;
-		};
+		}
+		return create;
 	}
 }
 
@@ -119,10 +133,21 @@ data Type a = Constr1 Number a
 //Type.Constr2.Constr2 == true
 //Type.Constr2 == Type.Constr2
 
+
+//record update (creates a new object):
+
+//function T(){}
+//data(T, [["C", {a: String,b: String}]]);
+//T.C("2","3").update({a:"4"}).a == "4"
+
 function Maybe(){}
 data(Maybe, [["Just", "a"], "Nothing"]);
 
+function Ordering(){}
+data(Ordering, ["LT", "EQ", "GT"])
 
+function Either(){}
+data(Either, [["Left", "a"], ["Right", "b"]])
 
 // -------------------------------------------------
 // Operators
