@@ -56,7 +56,7 @@ function slice(arr, i1){
 
 function foldl(f, initial, arr) {
     for(var i = 0, l = arr.length; i < l; ++i) 
-		initial = f(arr[i], initial);
+		initial = f(initial, arr[i]);
     return initial;
 }
 
@@ -231,7 +231,7 @@ function elem(x, xs){
 }
 
 function isSpace(c){
-	return /\s/.test(c);
+	return /^\s$/.test(c);
 }
 function isUpper(c){
 	return c.toUpperCase() == c;
@@ -240,31 +240,33 @@ function isLower(c){
 	return c.toLowerCase() == c;
 }
 function isAlphaNum(c){
-	return /\w/.test(c);
+	return /^\w$/.test(c);
 }
 function isAlpha(c){
-	return /\w/.test(c) && /\D/.test(c);
+	return /^\w$/.test(c) && /^\D$/.test(c);
 }
 function isDigit(c){
-	return /\d/.test(c);
+	return /^\d$/.test(c);
 }
 function isHexDigit(c){
-	return /[0-9A-Fa-f]/.test(c);
+	return /^[0-9A-Fa-f]$/.test(c);
 }
 function isOctDigit(c){
-	return /[0-7]/.test(c);
+	return /^[0-7]$/.test(c);
 }
 
 
 function digitToInt(c){
-	if(c.length != 1)
-		throw "digitToInt accepts only a single character";
-
 	if(!isHexDigit(c))
-		throw "Char.digitToInt: not a digit " + c;
+		throw "Data.Char.digitToInt: not a digit " + c;
 
 	return parseInt(c, 16);
 }
+
+
+var toInteger = parseInt; //TODO
+
+var fromInteger = id; //TODO
 
 // -------------------------------------------------
 // Algebraic Data Types
@@ -301,8 +303,8 @@ function adtToString(type){
 		if(!isArray(rec)){
 			for(var name in rec){
 				var item = (type ? (rec[name].name || rec[name]) : this[name]);
-				if(item instanceof Function)
-					item = "Function(" + (item.name || item.constructor.name) + ")";
+				if(!type && (item instanceof Function))
+					item = item.constructor != Function ? item.constructor.name : "Function(" + item.name + ")";
 				acc.push(name + " :: " + item );
 			}
 			var indent = replicate(this._dataConstructor.length + 2," ").join("");
@@ -799,6 +801,10 @@ function make_result(remaining, matched, ast, success, expecting){
 				success: success, expecting: expecting };
 }
 
+var EmptyOk = function(state){
+	return make_result(state, "", undef);
+}
+
 function _fail(state, expecting){
 	return make_result(state, "", undef, false, expecting);
 }
@@ -998,7 +1004,7 @@ function getParserState(state){
 
 function setParserState(id){ return function(state, scope){
 	state.scrollTo(scope[id]);
-	return make_result(state, "", undef);
+	return EmptyOk(state);
 }}
 
 //in contrast with Haskell here's no closure in the do_ notation,
@@ -2421,6 +2427,131 @@ function makeTokenParser(languageDef){
 
 
 //    -----------------------------------------------------------
+//    -- White space & symbols
+//    -----------------------------------------------------------
+
+//    symbol name
+//        = lexeme (string name)
+
+function symbol(name){
+	return lexeme(string(name));
+}
+
+
+//
+//    lexeme p
+//        = do{ x <- p; whiteSpace; return x  }
+
+function lexeme(p){
+	return do_(bind("x", p), whiteSpace, ret("x") );
+}
+
+
+//
+//
+//    simpleSpace =
+//        skipMany1 (satisfy isSpace)
+
+var simpleSpace =
+        skipMany1(satisfy(isSpace));
+
+
+//
+//    oneLineComment =
+//        do{ try (string (commentLine languageDef))
+//          ; skipMany (satisfy (/= '\n'))
+//          ; return ()
+//          }
+
+var oneLineComment =
+        cs( try_(string(languageDef.commentLine)) )
+          ( skipMany, satisfy(function(c){ return c != '\n' }) )
+          ( return_, null).resolve();
+
+
+//
+//    inCommentSingle
+//        =   do{ try (string (commentEnd languageDef)); return () }
+//        <|> do{ skipMany1 (noneOf startEnd)         ; inCommentSingle }
+//        <|> do{ oneOf startEnd                      ; inCommentSingle }
+//        <?> "end of comment"
+//        where
+//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+
+var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
+
+function _inCommentSingle(st, sc){ return inCommentSingle(st, sc) }
+
+var inCommentSingle
+            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
+        ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentSingle )
+        ,"<|>", do_( oneOf(startEnd)                       , _inCommentSingle )
+        ,"<?>", "end of comment"].resolve();
+
+
+
+//    inCommentMulti
+//        =   do{ try (string (commentEnd languageDef)) ; return () }
+//        <|> do{ multiLineComment                     ; inCommentMulti }
+//        <|> do{ skipMany1 (noneOf startEnd)          ; inCommentMulti }
+//        <|> do{ oneOf startEnd                       ; inCommentMulti }
+//        <?> "end of comment"
+//        where
+//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+
+function _inCommentMulti(st){ return inCommentMulti(st) }
+
+var inCommentMulti
+            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
+        ,"<|>", do_( _multiLineComment                     , _inCommentMulti )
+        ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentMulti )
+        ,"<|>", do_( oneOf(startEnd)                       , _inCommentMulti )
+        ,"<?>", "end of comment"].resolve();
+
+
+
+//    inComment
+//        | nestedComments languageDef  = inCommentMulti
+//        | otherwise                = inCommentSingle
+
+var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
+
+
+//    multiLineComment =
+//        do { try (string (commentStart languageDef))
+//           ; inComment
+//           }
+
+function _multiLineComment(st){ return multiLineComment(st) }
+
+var multiLineComment =
+        do_( try_ (string (languageDef.commentStart))
+           , inComment)
+
+
+//    whiteSpace
+//        | noLine && noMulti  = skipMany (simpleSpace <?> "")
+//        | noLine             = skipMany (simpleSpace <|> multiLineComment <?> "")
+//        | noMulti            = skipMany (simpleSpace <|> oneLineComment <?> "")
+//        | otherwise          = skipMany (simpleSpace <|> oneLineComment <|> multiLineComment <?> "")
+//        where
+//          noLine  = null (commentLine languageDef)
+//          noMulti = null (commentStart languageDef)
+
+var noLine   = null_(languageDef.commentLine);
+var noMulti  = null_(languageDef.commentStart);
+
+var whiteSpace = (
+	(noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
+	noLine				? [skipMany, [simpleSpace ,"<|>", multiLineComment ,"<?>", ""]] :
+	noMulti				? [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<?>", ""]] :
+						  [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<|>", multiLineComment ,"<?>", ""]]
+	).resolve();
+
+
+
+
+//    -----------------------------------------------------------
 //    -- Bracketing
 //    -----------------------------------------------------------
 //    parens p        = between (symbol "(") (symbol ")") p
@@ -2642,7 +2773,7 @@ var stringLiteral   = lexeme(
                                                       [char_('"') ,"<?>", "end of string"],
                                                       [many, stringChar]
                                )
-                               (ret, function(scope){ return foldr(maybe(id, (cons)), "", scope.str) })
+                               (ret, function(scope){ return foldr(curry(maybe)(id, curry(cons)), "", scope.str) }) //TODO
                           ,"<?>", "literal string"].resolve()
                       );
 
@@ -2661,13 +2792,10 @@ var stringLiteral   = lexeme(
 
 function number(base, baseDigit){ 
     return cs( "digits" ,"<-", many1, baseDigit )
-		     ( function(state, scope){
-					scope.n = foldl(function(x, d){
+			 ( ret, function(scope){
+						return foldl(function(x, d){
 								  return base * x + toInteger(digitToInt(d))
 							  }, 0, scope.digits);
-			 })
-             ( function(state, scope){
-					return seq(scope.n, return_(scope.n))(state, scope);
 			 }).resolve();
 }
 
@@ -2703,6 +2831,17 @@ function op(d, f){
 
 
 //
+//    sign            =   (char '-' >> return negate)
+//                    <|> (char '+' >> return id)
+//                    <|> return id
+
+var sign            = [[char_, '-' ,">>", return_, negate]
+                       ,"<|>", [char_, '+' ,">>", return_, id]
+                       ,"<|>", return_, id
+                      ].resolve();
+
+
+//
 //    exponent'       = do{ oneOf "eE"
 //                        ; f <- sign
 //                        ; e <- decimal <?> "exponent"
@@ -2735,16 +2874,16 @@ function power(e){
 //                        ; return ((fromInteger n)*expo)
 //                        }
 
-var fractExponent = function(n){
-						return [
-							  cs( "fract" ,"<-", fraction )
-								( "expo"  ,"<-", option, 1.0, exponent_ )
-								( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
-							  ,"<|>",
-							  cs( "expo" <- exponent_ )
-								( ret, function(scope){ return fromInteger(n) * scope.expo })
-						].resolve();
-					}
+function fractExponent(n){
+	return [
+		  cs( "fract" ,"<-", fraction )
+			( "expo"  ,"<-", option, 1.0, exponent_ )
+			( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
+		,"<|>",
+		  cs( "expo", "<-", exponent_ )
+			( ret, function(scope){ return fromInteger(n) * scope.expo })
+	].resolve();
+}
 
 //    -- floats
 //    floating        = do{ n <- decimal
@@ -2752,7 +2891,7 @@ var fractExponent = function(n){
 //                        }
 
 var floating        = cs( "n" ,"<-", decimal)
-                        ( function(state, scope){ return fractExponent(scope.n)(state, scope) }).resolve();
+                        ( function(state, scope){ return fractExponent(scope.n)(state) }).resolve();
 
 
 //    fractFloat n    = do{ f <- fractExponent n
@@ -2807,17 +2946,6 @@ var natFloat        = [do_( char_('0'),
                           )
                       ,"<|>", decimalFloat].resolve();
 
-
-
-//
-//    sign            =   (char '-' >> return negate)
-//                    <|> (char '+' >> return id)
-//                    <|> return id
-
-var sign            = [[char_, '-' ,">>", return_, negate]
-                       ,"<|>", [char_, '+' ,">>", return_, id]
-                       ,"<|>", return_, id
-                      ].resolve();
 
 
 //    zeroNumber      = do{ char '0'
@@ -2903,6 +3031,7 @@ var oper =
 //             else return name
 //          }
 
+//TODO: too much recursion
 var operator =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", oper )
@@ -2971,23 +3100,6 @@ function caseString(name){
 }
 
 
-//    identifier =
-//        lexeme $ try $
-//        do{ name <- ident
-//          ; if (isReservedName name)
-//             then unexpected ("reserved word " ++ show name)
-//             else return name
-//          }
-
-var identifier =
-        [lexeme ,"$", try_ ,"$",
-        cs( "name" ,"<-", oper )
-          ( function(state, scope){
-					return (isReservedName(scope.name) ? 
-						unexpected("reserved word " + scope.name) : return_(scope.name) )(state, scope);
-          })].resolve();
-
-
 //    ident
 //        = do{ c <- identStart languageDef
 //            ; cs <- many (identLetter languageDef)
@@ -3000,6 +3112,27 @@ var ident
               ( "cs" ,"<-", many, languageDef.identLetter )
               ( returnCall, cons, "c", "cs" )
            ,"<?>", "identifier"].resolve();
+
+
+//    identifier =
+//        lexeme $ try $
+//        do{ name <- ident
+//          ; if (isReservedName name)
+//             then unexpected ("reserved word " ++ show name)
+//             else return name
+//          }
+
+//TODO: too much recursion
+var identifier =
+        [lexeme ,"$", try_ ,"$",
+        cs( "name" ,"<-", ident )
+          ( function(state, scope){
+				return ( isReservedName(scope.name) ? 
+							unexpected("reserved word " + scope.name) : 
+							return_(scope.name)
+						)(state, scope);
+          })].resolve();
+
 
 
 //    isReservedName name
@@ -3053,124 +3186,6 @@ var theReservedNames = languageDef.caseSensitive ?
 							map( function(str){ return str.toLowerCase() }, sortedNames );
 
 
-
-//    -----------------------------------------------------------
-//    -- White space & symbols
-//    -----------------------------------------------------------
-
-//    symbol name
-//        = lexeme (string name)
-
-function symbol(name){
-	return lexeme(string(name));
-}
-
-
-//
-//    lexeme p
-//        = do{ x <- p; whiteSpace; return x  }
-
-function lexeme(p){
-	return do_(bind("x", p), whiteSpace, ret("x") );
-}
-
-
-//
-//
-//    simpleSpace =
-//        skipMany1 (satisfy isSpace)
-
-var simpleSpace =
-        skipMany1(satisfy(isSpace));
-
-
-//
-//    oneLineComment =
-//        do{ try (string (commentLine languageDef))
-//          ; skipMany (satisfy (/= '\n'))
-//          ; return ()
-//          }
-
-var oneLineComment =
-        cs( try_(string(languageDef.commentLine)) )
-          ( skipMany, satisfy(function(c){ return c != '\n' }) )
-          ( return_, null).resolve();
-
-
-//
-//    inCommentSingle
-//        =   do{ try (string (commentEnd languageDef)); return () }
-//        <|> do{ skipMany1 (noneOf startEnd)         ; inCommentSingle }
-//        <|> do{ oneOf startEnd                      ; inCommentSingle }
-//        <?> "end of comment"
-//        where
-//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
-
-var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
-
-var inCommentSingle
-            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
-        ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentSingle )
-        ,"<|>", do_( oneOf(startEnd)                       , _inCommentSingle )
-        ,"<?>", "end of comment"].resolve();
-
-function _inCommentSingle(st, sc){ return inCommentSingle(st, sc) }
-
-
-//    inCommentMulti
-//        =   do{ try (string (commentEnd languageDef)) ; return () }
-//        <|> do{ multiLineComment                     ; inCommentMulti }
-//        <|> do{ skipMany1 (noneOf startEnd)          ; inCommentMulti }
-//        <|> do{ oneOf startEnd                       ; inCommentMulti }
-//        <?> "end of comment"
-//        where
-//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
-
-var inCommentMulti
-            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
-        ,"<|>", do_( multiLineComment                      , _inCommentMulti )
-        ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentMulti )
-        ,"<|>", do_( oneOf(startEnd)                       , _inCommentMulti )
-        ,"<?>", "end of comment"].resolve();
-
-function _inCommentMulti(st, sc){ return inCommentMulti(st, sc) }
-
-
-//    inComment
-//        | nestedComments languageDef  = inCommentMulti
-//        | otherwise                = inCommentSingle
-
-var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
-
-
-//    multiLineComment =
-//        do { try (string (commentStart languageDef))
-//           ; inComment
-//           }
-
-var multiLineComment =
-        do_( try_ (string (languageDef.commentStart))
-           , inComment)
-
-
-//    whiteSpace
-//        | noLine && noMulti  = skipMany (simpleSpace <?> "")
-//        | noLine             = skipMany (simpleSpace <|> multiLineComment <?> "")
-//        | noMulti            = skipMany (simpleSpace <|> oneLineComment <?> "")
-//        | otherwise          = skipMany (simpleSpace <|> oneLineComment <|> multiLineComment <?> "")
-//        where
-//          noLine  = null (commentLine languageDef)
-//          noMulti = null (commentStart languageDef)
-
-var noLine   = null_(languageDef.commentLine);
-var noMulti  = null_(languageDef.commentStart);
-
-var whiteSpace = (
-	(noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
-	noLine				? [skipMany, [simpleSpace ,"<|>", multiLineComment ,"<?>", ""]] :
-	noMulti				? [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<?>", ""]] :
-						  [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<|>", multiLineComment ,"<?>", ""]]
-	).resolve();
 
 
 

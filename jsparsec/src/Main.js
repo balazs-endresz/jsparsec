@@ -37,7 +37,7 @@ function slice(arr, i1){
 
 function foldl(f, initial, arr) {
     for(var i = 0, l = arr.length; i < l; ++i) 
-		initial = f(arr[i], initial);
+		initial = f(initial, arr[i]);
     return initial;
 }
 
@@ -212,7 +212,7 @@ function elem(x, xs){
 }
 
 function isSpace(c){
-	return /\s/.test(c);
+	return /^\s$/.test(c);
 }
 function isUpper(c){
 	return c.toUpperCase() == c;
@@ -221,28 +221,30 @@ function isLower(c){
 	return c.toLowerCase() == c;
 }
 function isAlphaNum(c){
-	return /\w/.test(c);
+	return /^\w$/.test(c);
 }
 function isAlpha(c){
-	return /\w/.test(c) && /\D/.test(c);
+	return /^\w$/.test(c) && /^\D$/.test(c);
 }
 function isDigit(c){
-	return /\d/.test(c);
+	return /^\d$/.test(c);
 }
 function isHexDigit(c){
-	return /[0-9A-Fa-f]/.test(c);
+	return /^[0-9A-Fa-f]$/.test(c);
 }
 function isOctDigit(c){
-	return /[0-7]/.test(c);
+	return /^[0-7]$/.test(c);
 }
 
 
 function digitToInt(c){
-	if(c.length != 1)
-		throw "digitToInt accepts only a single character";
-
 	if(!isHexDigit(c))
-		throw "Char.digitToInt: not a digit " + c;
+		throw "Data.Char.digitToInt: not a digit " + c;
 
 	return parseInt(c, 16);
 }
+
+
+var toInteger = parseInt; //TODO
+
+var fromInteger = id; //TODO

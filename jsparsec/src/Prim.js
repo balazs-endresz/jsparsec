@@ -133,6 +133,10 @@ function make_result(remaining, matched, ast, success, expecting){
 				success: success, expecting: expecting };
 }
 
+var EmptyOk = function(state){
+	return make_result(state, "", undef);
+}
+
 function _fail(state, expecting){
 	return make_result(state, "", undef, false, expecting);
 }
@@ -332,7 +336,7 @@ function getParserState(state){
 
 function setParserState(id){ return function(state, scope){
 	state.scrollTo(scope[id]);
-	return make_result(state, "", undef);
+	return EmptyOk(state);
 }}
 
 //in contrast with Haskell here's no closure in the do_ notation,
