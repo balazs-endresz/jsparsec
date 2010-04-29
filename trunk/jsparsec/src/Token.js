@@ -1022,7 +1022,7 @@ function reservedOp(name){
 var oper =
         [ cs( "c"  ,"<-", languageDef.opStart )
             ( "cs" ,"<-", many, languageDef.opLetter )
-            ( returnCall, cons, "c", "cs" )
+            ( returnCall, consJoin, "c", "cs" )
          ,"<?>", "operator"].resolve();
 
 
@@ -1113,7 +1113,7 @@ function caseString(name){
 var ident
         = [ cs( "c"  ,"<-", languageDef.identStart )
               ( "cs" ,"<-", many, languageDef.identLetter )
-              ( returnCall, cons, "c", "cs" )
+              ( returnCall, consJoin, "c", "cs" )
            ,"<?>", "identifier"].resolve();
 
 
@@ -1172,9 +1172,7 @@ function isReserved(names, name){
 				ord.GT ? false : null;
 	}
 
-	var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
-
-	return isReserved(theReservedNames, caseName);
+	return scan(names);
 }
 
 //    theReservedNames
