@@ -33,8 +33,8 @@ function adtToString(type){
 		if(!isArray(rec)){
 			for(var name in rec){
 				var item = (type ? (rec[name].name || rec[name]) : this[name]);
-				if(item instanceof Function)
-					item = "Function(" + (item.name || item.constructor.name) + ")";
+				if(!type && (item instanceof Function))
+					item = item.constructor != Function ? item.constructor.name : "Function(" + item.name + ")";
 				acc.push(name + " :: " + item );
 			}
 			var indent = replicate(this._dataConstructor.length + 2," ").join("");
