@@ -155,6 +155,20 @@ function maybe(n, f, m){
 		return f(m[0]);
 }
 
+//  compare x y = if x == y then EQ
+//                  -- NB: must be '<=' not '<' to validate the
+//                  -- above claim about the minimal things that
+//                  -- can be defined for an instance of Ord:
+//                  else if x <= y then LT
+//                  else GT
+
+function compare(x, y){
+	return x === y ? Ordering.EQ : 
+		   x <=  y ? Ordering.LT :
+		             Ordering.GT
+}
+
+
 function extend(a, b){
 	for(var key in b)
 		a[key] = b[key];
@@ -189,6 +203,17 @@ function cons(x, xs){
 
 	return xs;
 }
+
+
+function consJoin(x, xs){
+	if(typeof x == "string" && typeof xs == "string")
+		return x+xs;
+
+	xs.unshift(x);
+
+	return xs.join("");
+}
+
 
 function replicate(n, x){
 	for (var ret = [], i = 0; i < n; ++i)
