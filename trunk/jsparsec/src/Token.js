@@ -903,11 +903,10 @@ var floating        = cs( "n" ,"<-", decimal)
 //                        ; return (Right f)
 //                        }
 
-
-var fractFloat      = function(n){
-                          return cs( "f" ,"<-", fractExponent, n)
-                                   ( returnCall, Either.Right, "f").resolve();
-                      }
+function fractFloat(n){
+	return cs( "f" ,"<-", fractExponent, n)
+			 ( returnCall, Either.Right, "f").resolve();
+}
 
 
 //
@@ -1006,9 +1005,8 @@ var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 //          }
 
 function reservedOp(name){
-
 	return [lexeme ,"$", try_ ,"$",
-				cs( string, name ) 
+				cs( string(name) ) 
 				  ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
 			].resolve();
 }
@@ -1068,7 +1066,7 @@ function isReservedOp(name){
 
 function reserved(name){
 	return [lexeme ,"$", try_ ,"$",
-			cs( caseString, name )
+			cs( caseString(name) )
 			  ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
 			].resolve();
 }
@@ -1089,7 +1087,7 @@ function reserved(name){
 function caseString(name){
 
 	function walk(cs){
-		(!cs.length) ? return_(null) :
+		return (!cs.length) ? return_(null) :
 					   do_( label(caseChar(cs[0]), "" + name),
 							walk(slice(cs, 1)) );
 	}

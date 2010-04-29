@@ -154,15 +154,15 @@ var javaStyle = GenLanguageDef.LanguageDef(record,
 //                }
 
 var haskell98Def = haskellStyle.update(
-                { reservedOpNames: ["::","..","=","\\","|","<-","->","@","~","=>"]
-                , reservedNames  : ["let","in","case","of","if","then","else",
-                                    "data","type",
-                                    "class","default","deriving","do","import",
-                                    "infix","infixl","infixr","instance","module",
-                                    "newtype","where",
-                                    "primitive"
+                { reservedOpNames : ["::","..","=","\\","|","<-","->","@","~","=>"]
+                , reservedNames   : ["let","in","case","of","if","then","else",
+                                     "data","type",
+                                     "class","default","deriving","do","import",
+                                     "infix","infixl","infixr","instance","module",
+                                     "newtype","where",
+                                     "primitive"
                                    // ,"as","qualified","hiding"
-                                   ]
+                                    ]
                 });
 
 
@@ -180,12 +180,12 @@ var haskell98Def = haskellStyle.update(
 //                }
 
 var haskellDef = haskell98Def.update(
-	        { identLetter	 : [haskell98Def.identLetter ,"<|>", char_, '#'].resolve()
-	        , reservedNames	 : haskell98Def.reservedNames.concat(
-    				   ["foreign","import","export","primitive"
-    				   ,"_ccall_","_casm_"
-    				   ,"forall"
-    				   ])
+	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_, '#'].resolve()
+	        , reservedNames : haskell98Def.reservedNames.concat(
+    				              ["foreign","import","export","primitive"
+                                  ,"_ccall_","_casm_"
+                                  ,"forall"
+                                  ])
             });
 
 //-- | A lexer for the haskell language.
@@ -215,7 +215,7 @@ var mondrianDef = javaStyle.update(
 		{ reservedNames : [ "case", "class", "default", "extends"
 				          , "import", "in", "let", "new", "of", "package"
 				          ]
-        , caseSensitive  : true
+        , caseSensitive : true
 		});
 
 //-- | A lexer for the mondrian language.
