@@ -248,3 +248,5 @@ function digitToInt(c){
 var toInteger = parseInt; //TODO
 
 var fromInteger = id; //TODO
+
+var fromIntegral = id; //TODO

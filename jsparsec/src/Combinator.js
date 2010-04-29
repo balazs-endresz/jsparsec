@@ -66,7 +66,7 @@ function option(x, p){
 //
 
 function optionMaybe(p){
-	return option(Maybe.Nothing, fmap(Maybe.Just, p));
+	return option(Maybe.Nothing, liftM(Maybe.Just, p));
 }
 
 

@@ -246,7 +246,7 @@ var make1P     = function(fn, show){return _make(fn, show, true)};
 var make2P     = function(fn, show){return _make(fn, show, true, true)};
 //apply toParser to all:
 var makeNP     = function(fn, show){return _make(fn, show, false, false, true)}; 
- //curries the snd arg:
+//curries the snd arg:
 var makeAction = function(fn, show){return _make(fn, show, false, false, false, true)};
 
 
@@ -371,9 +371,11 @@ var action = makeAction(function(state, scope, p, f){
 
 var parsecMap = flip(action);
 var fmap = parsecMap;
-var liftA = fmap;
+var liftM = fmap;
+var liftA = liftM;
 var liftA2 = function(f, a, b){ return ap(fmap(f, a), b) };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
+
 
 // Given a parser that produces an array as an ast, returns a
 // parser that produces an ast with the array joined by a separator.
@@ -607,7 +609,7 @@ function sequence(ms){
 extend(operators, {
 	"<-" : {
 		func:	bind,
-		fixity: infixr(0)
+		fixity: infixr(-1) //this is a special operator, don't use negative fixity anywhere else!
 		//,type:	[String, Parser, Parser]
 	},
 	">>=": {

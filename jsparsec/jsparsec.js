@@ -268,6 +268,8 @@ var toInteger = parseInt; //TODO
 
 var fromInteger = id; //TODO
 
+var fromIntegral = id; //TODO
+
 // -------------------------------------------------
 // Algebraic Data Types
 // -------------------------------------------------
@@ -914,7 +916,7 @@ var make1P     = function(fn, show){return _make(fn, show, true)};
 var make2P     = function(fn, show){return _make(fn, show, true, true)};
 //apply toParser to all:
 var makeNP     = function(fn, show){return _make(fn, show, false, false, true)}; 
- //curries the snd arg:
+//curries the snd arg:
 var makeAction = function(fn, show){return _make(fn, show, false, false, false, true)};
 
 
@@ -1039,9 +1041,11 @@ var action = makeAction(function(state, scope, p, f){
 
 var parsecMap = flip(action);
 var fmap = parsecMap;
-var liftA = fmap;
+var liftM = fmap;
+var liftA = liftM;
 var liftA2 = function(f, a, b){ return ap(fmap(f, a), b) };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
+
 
 // Given a parser that produces an array as an ast, returns a
 // parser that produces an ast with the array joined by a separator.
@@ -1275,7 +1279,7 @@ function sequence(ms){
 extend(operators, {
 	"<-" : {
 		func:	bind,
-		fixity: infixr(0)
+		fixity: infixr(-1) //this is a special operator, don't use negative fixity anywhere else!
 		//,type:	[String, Parser, Parser]
 	},
 	">>=": {
@@ -1574,7 +1578,7 @@ function option(x, p){
 //
 
 function optionMaybe(p){
-	return option(Maybe.Nothing, fmap(Maybe.Just, p));
+	return option(Maybe.Nothing, liftM(Maybe.Just, p));
 }
 
 
@@ -2898,11 +2902,10 @@ var floating        = cs( "n" ,"<-", decimal)
 //                        ; return (Right f)
 //                        }
 
-
-var fractFloat      = function(n){
-                          return cs( "f" ,"<-", fractExponent, n)
-                                   ( returnCall, Either.Right, "f").resolve();
-                      }
+function fractFloat(n){
+	return cs( "f" ,"<-", fractExponent, n)
+			 ( returnCall, Either.Right, "f").resolve();
+}
 
 
 //
@@ -3001,9 +3004,8 @@ var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 //          }
 
 function reservedOp(name){
-
 	return [lexeme ,"$", try_ ,"$",
-				cs( string, name ) 
+				cs( string(name) ) 
 				  ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
 			].resolve();
 }
@@ -3063,7 +3065,7 @@ function isReservedOp(name){
 
 function reserved(name){
 	return [lexeme ,"$", try_ ,"$",
-			cs( caseString, name )
+			cs( caseString(name) )
 			  ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
 			].resolve();
 }
@@ -3084,7 +3086,7 @@ function reserved(name){
 function caseString(name){
 
 	function walk(cs){
-		(!cs.length) ? return_(null) :
+		return (!cs.length) ? return_(null) :
 					   do_( label(caseChar(cs[0]), "" + name),
 							walk(slice(cs, 1)) );
 	}
@@ -3382,15 +3384,15 @@ var javaStyle = GenLanguageDef.LanguageDef(record,
 //                }
 
 var haskell98Def = haskellStyle.update(
-                { reservedOpNames: ["::","..","=","\\","|","<-","->","@","~","=>"]
-                , reservedNames  : ["let","in","case","of","if","then","else",
-                                    "data","type",
-                                    "class","default","deriving","do","import",
-                                    "infix","infixl","infixr","instance","module",
-                                    "newtype","where",
-                                    "primitive"
+                { reservedOpNames : ["::","..","=","\\","|","<-","->","@","~","=>"]
+                , reservedNames   : ["let","in","case","of","if","then","else",
+                                     "data","type",
+                                     "class","default","deriving","do","import",
+                                     "infix","infixl","infixr","instance","module",
+                                     "newtype","where",
+                                     "primitive"
                                    // ,"as","qualified","hiding"
-                                   ]
+                                    ]
                 });
 
 
@@ -3408,12 +3410,12 @@ var haskell98Def = haskellStyle.update(
 //                }
 
 var haskellDef = haskell98Def.update(
-	        { identLetter	 : [haskell98Def.identLetter ,"<|>", char_, '#'].resolve()
-	        , reservedNames	 : haskell98Def.reservedNames.concat(
-    				   ["foreign","import","export","primitive"
-    				   ,"_ccall_","_casm_"
-    				   ,"forall"
-    				   ])
+	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_, '#'].resolve()
+	        , reservedNames : haskell98Def.reservedNames.concat(
+    				              ["foreign","import","export","primitive"
+                                  ,"_ccall_","_casm_"
+                                  ,"forall"
+                                  ])
             });
 
 //-- | A lexer for the haskell language.
@@ -3443,7 +3445,7 @@ var mondrianDef = javaStyle.update(
 		{ reservedNames : [ "case", "class", "default", "extends"
 				          , "import", "in", "let", "new", "of", "package"
 				          ]
-        , caseSensitive  : true
+        , caseSensitive : true
 		});
 
 //-- | A lexer for the mondrian language.
