@@ -2704,7 +2704,7 @@ var escapeEmpty     = char_('&');
 //                        }
 
 var escapeGap       = cs( many1, space )
-                        ( char_, '\\' ,"<?>", "end of string gap").resolve();
+                        ( char_('\\') ,"<?>", "end of string gap").resolve();
                         
 
 //    charNum         = do{ code <- decimal
@@ -2725,7 +2725,7 @@ var charNum         = cs( "code" ,"<-", _decimal
 //                        ; return (toEnum (fromEnum code - fromEnum 'A'))
 //                        }
 
-var charControl     = cs( char_, '^' )
+var charControl     = cs( char_('^') )
                         ( "code" ,"<-", upper )
                         ( ret(function(scope){ return toEnum(fromEnum(scope.code) - fromEnum('A'))  }) ).resolve();
  
@@ -2775,7 +2775,7 @@ var charLiteral        = [lexeme, [between, char_('\''),
 //                          <|> do{ esc <- escapeCode; return (Just esc) }
 //                        }
 
-var stringEscape    = cs( char_, '\\')
+var stringEscape    = cs( char_('\\') )
                         (         cs( escapeGap   ) ( return_, Maybe.Nothing )
                           ,"<|>", cs( escapeEmpty ) ( return_, Maybe.Nothing )
                           ,"<|>", cs( "esc" ,"<-", escapeCode) ( returnCall, Maybe.Just, "esc" )
@@ -2853,7 +2853,7 @@ var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
 //                    where
 //                      op d f    = (f + fromIntegral (digitToInt d))/10.0
 
-var fraction        = [ cs( char_, '.')
+var fraction        = [ cs( char_('.'))
                           ( "digits" ,"<-", many1, digit ,"<?>", "fraction")
                           ( ret, function(scope){ return foldr(op, 0.0, scope.digits) })
                         ,"<?>", "fraction"].resolve();
@@ -2867,8 +2867,8 @@ function op(d, f){
 //                    <|> (char '+' >> return id)
 //                    <|> return id
 
-var sign            = [[char_, '-' ,">>", return_, negate]
-                       ,"<|>", [char_, '+' ,">>", return_, id]
+var sign            = [[char_('-') ,">>", return_, negate]
+                       ,"<|>", [char_('+') ,">>", return_, id]
                        ,"<|>", return_, id
                       ].resolve();
 
@@ -3306,8 +3306,8 @@ var emptyDef = GenLanguageDef.LanguageDef(record,
                , commentEnd     : ""
                , commentLine    : ""
                , nestedComments : true
-               , identStart     : [letter   ,"<|>", char_, '_'].resolve()
-               , identLetter    : [alphaNum ,"<|>", oneOf, "_'"].resolve()
+               , identStart     : [letter   ,"<|>", char_('_')].resolve()
+               , identLetter    : [alphaNum ,"<|>", oneOf("_'")].resolve()
                , opStart        : emptyDefOpLetter
                , opLetter       : emptyDefOpLetter
                , reservedOpNames: []
@@ -3432,7 +3432,7 @@ var haskell98Def = haskellStyle.update(
 //                }
 
 var haskellDef = haskell98Def.update(
-	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_, '#'].resolve()
+	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
 	        , reservedNames : haskell98Def.reservedNames.concat(
     				              ["foreign","import","export","primitive"
                                   ,"_ccall_","_casm_"

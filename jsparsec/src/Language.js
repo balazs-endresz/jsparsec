@@ -52,8 +52,8 @@ var emptyDef = GenLanguageDef.LanguageDef(record,
                , commentEnd     : ""
                , commentLine    : ""
                , nestedComments : true
-               , identStart     : [letter   ,"<|>", char_, '_'].resolve()
-               , identLetter    : [alphaNum ,"<|>", oneOf, "_'"].resolve()
+               , identStart     : [letter   ,"<|>", char_('_')].resolve()
+               , identLetter    : [alphaNum ,"<|>", oneOf("_'")].resolve()
                , opStart        : emptyDefOpLetter
                , opLetter       : emptyDefOpLetter
                , reservedOpNames: []
@@ -178,7 +178,7 @@ var haskell98Def = haskellStyle.update(
 //                }
 
 var haskellDef = haskell98Def.update(
-	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_, '#'].resolve()
+	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
 	        , reservedNames : haskell98Def.reservedNames.concat(
     				              ["foreign","import","export","primitive"
                                   ,"_ccall_","_casm_"
