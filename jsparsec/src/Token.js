@@ -1034,7 +1034,6 @@ var oper =
 //             else return name
 //          }
 
-//TODO: too much recursion
 var operator =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", oper )
@@ -1125,7 +1124,6 @@ var ident
 //             else return name
 //          }
 
-//TODO: too much recursion
 var identifier =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", ident )
