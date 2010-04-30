@@ -197,9 +197,9 @@ function processError(e, s, i, unexp){
 			restlc = s.input.substr(index).split("\n").length,
 			line = linecount - restlc + 1,
 			lindex = index - lines.splice(0,line-1).join("\n").length;
-		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) +  
-				(unexp ? "" : ("\", expecting \"" + e)) + 
-				"\" at line " + line + " char " + lindex;
+		return 'Unexpected "' + (unexp || s.input.substr(index, e.length).substr(0, 6)) +  
+				(unexp ? "" : ('", expecting "' + e)) + 
+				'" at line ' + line + ' char ' + lindex;
 	}
 
 	if(isArray(e)){
@@ -219,7 +219,7 @@ function _make(fn, show, p1, p2, pN, action){
 		p = pN ? map(toParser, arguments) : p;
 		p = p1 ? toParser(p) : p;
 		opt1 = p2 ? toParser(opt1) : opt1;
-		opt1 = action ? curry(opt1) : opt1;
+		p = action ? curry(p) : p;
 
 		var ret = function(state, scope) {
 			var result = state.getCached(pid);
@@ -246,8 +246,8 @@ var make1P     = function(fn, show){return _make(fn, show, true)};
 var make2P     = function(fn, show){return _make(fn, show, true, true)};
 //apply toParser to all:
 var makeNP     = function(fn, show){return _make(fn, show, false, false, true)}; 
-//curries the snd arg:
-var makeAction = function(fn, show){return _make(fn, show, false, false, false, true)};
+//curries the first arg:
+var makeAction = function(fn, show){return _make(fn, show, false, true, false, true)};
 
 
 function parserBind(p,f){ 
@@ -354,13 +354,13 @@ var pure = return_;
 //and applies the ast of the first to the ast of the second
 //the ast of the first must be a function
 function ap(a, b){
-	return action(tokens(a, b), function(ast){ return ast[0](ast[1]) } );
+	return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
 }
 
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var action = makeAction(function(state, scope, p, f){
+var parsecMap = makeAction(function(state, scope, f, p){
 		var result = p(state, scope);
 		if(!result.success)
 			return result;
@@ -369,7 +369,7 @@ var action = makeAction(function(state, scope, p, f){
 		return result;
 	});
 
-var parsecMap = flip(action);
+
 var fmap = parsecMap;
 var liftM = fmap;
 var liftA = liftM;
@@ -380,7 +380,7 @@ var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
 // Given a parser that produces an array as an ast, returns a
 // parser that produces an ast with the array joined by a separator.
 function join_action(p, sep) {
-    return action(p, function(ast) { return ast.join(sep); });
+    return fmap(function(ast) { return ast.join(sep); }, p);
 }
 
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
@@ -404,7 +404,13 @@ var parserPlus = makeNP(function(state, scope, parsers){
 
 		for(; i < l; ++i){
 			ast = (result = parsers[i](state, scope)).ast;
-			result.expecting && errors.push(result.expecting);
+			var err = result.expecting;
+			if(err){
+				if(isArray(err))
+					errors = errors.concat(err);
+				else
+					errors.push(err);
+			}
 			if(ast !== undefined)
 				break;
 		}

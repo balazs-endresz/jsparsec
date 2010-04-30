@@ -217,20 +217,16 @@ function flip(fn) {
 function cons(x, xs){
 	if(typeof x == "string" && typeof xs == "string")
 		return x+xs;
-
-	xs.unshift(x);
-
-	return xs;
+	
+	return [x].concat(xs);
 }
 
 
 function consJoin(x, xs){
 	if(typeof x == "string" && typeof xs == "string")
 		return x+xs;
-
-	xs.unshift(x);
-
-	return xs.join("");
+	
+	return x + xs.join("");
 }
 
 
@@ -633,7 +629,7 @@ function resolve(args, rec){
 			newfna.push(fn);
 			if(i != l-1)
 				newfna.push(e);
-			fna=[];
+			fna = [];
 		}
 	}
 	args = newfna;
@@ -653,6 +649,7 @@ function resolve(args, rec){
 
 Array.prototype.resolve = function(){ return resolve(this) };
 
+
 // -------------------------------------------------
 // Callstream interface for the do notation
 // -------------------------------------------------
@@ -662,33 +659,33 @@ function Recurse(){}
 var recurse = new Recurse();
 
 function cs(){
-	return (function(args){
-		function rec(s){return p(s)}
 
-		var lines = [], p, resolved;
-		lines.push(resolve(args, rec));
+	function rec(s){return p(s)}
 
-		function line(s){
-			if(s instanceof ParseState)
-				return (resolved ? p : line.resolve())(s);
-				
-			lines.push(resolve(arguments, rec));
-			return line;
-		}
+	var lines = [], p, resolved;
 
-		line.resolve = function(){
-			if(resolved)
-				return p;
-			p = do_.apply(null, lines);
-			lines = null;
-			resolved = true;
-			return p;
-		}
+	lines.push(resolve(arguments, rec));
 
-		line.CallStream = true;
-
+	function line(s){
+		if(s instanceof ParseState)
+			return (resolved ? p : line.resolve())(s);
+			
+		lines.push(resolve(arguments, rec));
 		return line;
-	})(arguments);
+	}
+
+	line.resolve = function(){
+		if(resolved)
+			return p;
+		p = do_.apply(null, lines);
+		lines = null;
+		resolved = true;
+		return p;
+	}
+
+	line.CallStream = true;
+
+	return line;
 }
 
 
@@ -892,9 +889,9 @@ function processError(e, s, i, unexp){
 			restlc = s.input.substr(index).split("\n").length,
 			line = linecount - restlc + 1,
 			lindex = index - lines.splice(0,line-1).join("\n").length;
-		return "Unexpected \"" + (unexp || s.input.substr(index, e.length)) +  
-				(unexp ? "" : ("\", expecting \"" + e)) + 
-				"\" at line " + line + " char " + lindex;
+		return 'Unexpected "' + (unexp || s.input.substr(index, e.length).substr(0, 6)) +  
+				(unexp ? "" : ('", expecting "' + e)) + 
+				'" at line ' + line + ' char ' + lindex;
 	}
 
 	if(isArray(e)){
@@ -914,7 +911,7 @@ function _make(fn, show, p1, p2, pN, action){
 		p = pN ? map(toParser, arguments) : p;
 		p = p1 ? toParser(p) : p;
 		opt1 = p2 ? toParser(opt1) : opt1;
-		opt1 = action ? curry(opt1) : opt1;
+		p = action ? curry(p) : p;
 
 		var ret = function(state, scope) {
 			var result = state.getCached(pid);
@@ -941,8 +938,8 @@ var make1P     = function(fn, show){return _make(fn, show, true)};
 var make2P     = function(fn, show){return _make(fn, show, true, true)};
 //apply toParser to all:
 var makeNP     = function(fn, show){return _make(fn, show, false, false, true)}; 
-//curries the snd arg:
-var makeAction = function(fn, show){return _make(fn, show, false, false, false, true)};
+//curries the first arg:
+var makeAction = function(fn, show){return _make(fn, show, false, true, false, true)};
 
 
 function parserBind(p,f){ 
@@ -1049,13 +1046,13 @@ var pure = return_;
 //and applies the ast of the first to the ast of the second
 //the ast of the first must be a function
 function ap(a, b){
-	return action(tokens(a, b), function(ast){ return ast[0](ast[1]) } );
+	return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
 }
 
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var action = makeAction(function(state, scope, p, f){
+var parsecMap = makeAction(function(state, scope, f, p){
 		var result = p(state, scope);
 		if(!result.success)
 			return result;
@@ -1064,7 +1061,7 @@ var action = makeAction(function(state, scope, p, f){
 		return result;
 	});
 
-var parsecMap = flip(action);
+
 var fmap = parsecMap;
 var liftM = fmap;
 var liftA = liftM;
@@ -1075,7 +1072,7 @@ var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
 // Given a parser that produces an array as an ast, returns a
 // parser that produces an ast with the array joined by a separator.
 function join_action(p, sep) {
-    return action(p, function(ast) { return ast.join(sep); });
+    return fmap(function(ast) { return ast.join(sep); }, p);
 }
 
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
@@ -1099,7 +1096,13 @@ var parserPlus = makeNP(function(state, scope, parsers){
 
 		for(; i < l; ++i){
 			ast = (result = parsers[i](state, scope)).ast;
-			result.expecting && errors.push(result.expecting);
+			var err = result.expecting;
+			if(err){
+				if(isArray(err))
+					errors = errors.concat(err);
+				else
+					errors.push(err);
+			}
 			if(ast !== undefined)
 				break;
 		}
@@ -3058,7 +3061,6 @@ var oper =
 //             else return name
 //          }
 
-//TODO: too much recursion
 var operator =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", oper )
@@ -3149,7 +3151,6 @@ var ident
 //             else return name
 //          }
 
-//TODO: too much recursion
 var identifier =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", ident )
@@ -3338,8 +3339,6 @@ var emptyDef = GenLanguageDef.LanguageDef(record,
 //                , caseSensitive  = True
 //                }
 
-var haskellStyleOpLetter = oneOf(":!#$%&*+./<=>?@\\^|-~");
-
 var haskellStyle = GenLanguageDef.LanguageDef(record,
                { commentStart   : "{-"
                , commentEnd     : "-}"
@@ -3347,8 +3346,8 @@ var haskellStyle = GenLanguageDef.LanguageDef(record,
                , nestedComments : true
                , identStart     : letter
                , identLetter    : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
-               , opStart        : haskellStyleOpLetter
-               , opLetter       : haskellStyleOpLetter
+               , opStart        : emptyDefOpLetter
+               , opLetter       : emptyDefOpLetter
                , reservedOpNames: []
                , reservedNames  : []
                , caseSensitive  : true
@@ -3373,17 +3372,17 @@ var haskellStyle = GenLanguageDef.LanguageDef(record,
 //		}
 
 var javaStyle = GenLanguageDef.LanguageDef(record,
-               { commentStart   : "/*"
-               , commentEnd     : "*/"
-               , commentLine    : "//"
-               , nestedComments : true
-               , identStart     : letter
-               , identLetter    : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
-               , opStart        : emptyDef.opStart
-               , opLetter       : emptyDef.opStart
-               , reservedOpNames: []
-               , reservedNames  : []
-               , caseSensitive  : false //TODO: why?
+               { commentStart    : "/*"
+               , commentEnd      : "*/"
+               , commentLine     : "//"
+               , nestedComments  : true
+               , identStart      : letter
+               , identLetter     : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
+               , opStart         : emptyDefOpLetter
+               , opLetter        : emptyDefOpLetter
+               , reservedOpNames : []
+               , reservedNames   : []
+               , caseSensitive   : false //TODO: why?
                });
 
 //-----------------------------------------------------------

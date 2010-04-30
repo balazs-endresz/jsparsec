@@ -198,20 +198,16 @@ function flip(fn) {
 function cons(x, xs){
 	if(typeof x == "string" && typeof xs == "string")
 		return x+xs;
-
-	xs.unshift(x);
-
-	return xs;
+	
+	return [x].concat(xs);
 }
 
 
 function consJoin(x, xs){
 	if(typeof x == "string" && typeof xs == "string")
 		return x+xs;
-
-	xs.unshift(x);
-
-	return xs.join("");
+	
+	return x + xs.join("");
 }
 
 

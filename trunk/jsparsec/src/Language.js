@@ -85,8 +85,6 @@ var emptyDef = GenLanguageDef.LanguageDef(record,
 //                , caseSensitive  = True
 //                }
 
-var haskellStyleOpLetter = oneOf(":!#$%&*+./<=>?@\\^|-~");
-
 var haskellStyle = GenLanguageDef.LanguageDef(record,
                { commentStart   : "{-"
                , commentEnd     : "-}"
@@ -94,8 +92,8 @@ var haskellStyle = GenLanguageDef.LanguageDef(record,
                , nestedComments : true
                , identStart     : letter
                , identLetter    : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
-               , opStart        : haskellStyleOpLetter
-               , opLetter       : haskellStyleOpLetter
+               , opStart        : emptyDefOpLetter
+               , opLetter       : emptyDefOpLetter
                , reservedOpNames: []
                , reservedNames  : []
                , caseSensitive  : true
@@ -120,17 +118,17 @@ var haskellStyle = GenLanguageDef.LanguageDef(record,
 //		}
 
 var javaStyle = GenLanguageDef.LanguageDef(record,
-               { commentStart   : "/*"
-               , commentEnd     : "*/"
-               , commentLine    : "//"
-               , nestedComments : true
-               , identStart     : letter
-               , identLetter    : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
-               , opStart        : emptyDef.opStart
-               , opLetter       : emptyDef.opStart
-               , reservedOpNames: []
-               , reservedNames  : []
-               , caseSensitive  : false //TODO: why?
+               { commentStart    : "/*"
+               , commentEnd      : "*/"
+               , commentLine     : "//"
+               , nestedComments  : true
+               , identStart      : letter
+               , identLetter     : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
+               , opStart         : emptyDefOpLetter
+               , opLetter        : emptyDefOpLetter
+               , reservedOpNames : []
+               , reservedNames   : []
+               , caseSensitive   : false //TODO: why?
                });
 
 //-----------------------------------------------------------

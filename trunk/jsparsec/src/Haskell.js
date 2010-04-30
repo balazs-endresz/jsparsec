@@ -336,7 +336,7 @@ function resolve(args, rec){
 			newfna.push(fn);
 			if(i != l-1)
 				newfna.push(e);
-			fna=[];
+			fna = [];
 		}
 	}
 	args = newfna;
@@ -356,6 +356,7 @@ function resolve(args, rec){
 
 Array.prototype.resolve = function(){ return resolve(this) };
 
+
 // -------------------------------------------------
 // Callstream interface for the do notation
 // -------------------------------------------------
@@ -365,32 +366,32 @@ function Recurse(){}
 var recurse = new Recurse();
 
 function cs(){
-	return (function(args){
-		function rec(s){return p(s)}
 
-		var lines = [], p, resolved;
-		lines.push(resolve(args, rec));
+	function rec(s){return p(s)}
 
-		function line(s){
-			if(s instanceof ParseState)
-				return (resolved ? p : line.resolve())(s);
-				
-			lines.push(resolve(arguments, rec));
-			return line;
-		}
+	var lines = [], p, resolved;
 
-		line.resolve = function(){
-			if(resolved)
-				return p;
-			p = do_.apply(null, lines);
-			lines = null;
-			resolved = true;
-			return p;
-		}
+	lines.push(resolve(arguments, rec));
 
-		line.CallStream = true;
-
+	function line(s){
+		if(s instanceof ParseState)
+			return (resolved ? p : line.resolve())(s);
+			
+		lines.push(resolve(arguments, rec));
 		return line;
-	})(arguments);
+	}
+
+	line.resolve = function(){
+		if(resolved)
+			return p;
+		p = do_.apply(null, lines);
+		lines = null;
+		resolved = true;
+		return p;
+	}
+
+	line.CallStream = true;
+
+	return line;
 }
 
