@@ -867,17 +867,41 @@ function toParser(p){
 		isArray(p) ? resolve(p) : p;
 }
 
-function run(p, strOrState, cb){
-		var result = toParser(p.length ? p : p())
-			(strOrState instanceof ParseState ? strOrState : ps(strOrState));
+
+function trampoline(x){
+	while(x && x.func)
+		x = x.func.apply(null, x.args || []);
+}
+
+var trampolineCount = 0;
+
+function trampolineAsync(x) {
+	trampolineCount++;
+	
+	if(!(x && x.func)){
+		trampolineCount = 0;
+		return;
+	}
+
+	x = x.func.apply(null, x.args || []);
+	
+	if(trampolineCount % 500 == 0 )
+		setTimeout(function(){ trampoline2(x) }, 1);
+	else
+		trampoline2(x);
+}
+
+function run(p, strOrState, complete, error, async){
+	(async ? trampolineAsync : trampoline) ({func:p, args:[strOrState instanceof ParseState ? strOrState : ps(strOrState), {}, function(result){
 		if(!result.success){
 			result.error = processError(result.expecting, result.remaining);
-			cb && cb(result.error);
+			error && error(result.error);
 		}else{
 			delete result.error;
 			delete result.expecting;
 		}
-		return result;
+		complete(result);
+	}]});
 }
 
 function processError(e, s, i, unexp){
@@ -946,64 +970,64 @@ function parserBind(p,f){
 	return function(state, scope){ return f(p(state, scope)) }
 }
 
-//stops when one parser has failed and returns only the last result
-var do_ = makeNP(function(state, _scope, parsers){
+
+var do2 = function(p1, p2){
+	return function(state, scope, k){
+		return { func: p1, args: [state, scope, function(result){
+			return result.success ? p2(state, scope, k) : k(result);
+		}]};
+}};
+
+var do_ = makeNP(function(state, _scope, k, parsers){
 		var scope = {},
-			matched = "",
-			i = 0,
+			i = 1,
 			l = parsers.length,
-			p, result;
+			result = parsers[0];
 		
 		scope.scope = _scope;
 
-		for(; i < l; ++i){
-			p = parsers[i];
-			result = (p.length ? p : p())(state, scope);
-			matched += result.matched;
-			if(!result.success)
-				break;			
-		}
+		for(; i < l; ++i)
+			result = tdo2(result, parsers[i]);
 
-		result = extend({}, result);
-		result.matched = matched;
-
-		if(result.success)
-			delete result.expecting;
-
-		return result;
+		return result(state, scope, k);
 	});
 
 
 function bind(name, p){ 
 	if(name == "scope")
 		throw "Can't use 'scope' as an identifier!";
-	return function(state, scope){
-		var result = p(state, scope);
-		if(result.success)
-			scope[name] = result.ast;
-		return result;
+	return function(state, scope, k){
+		return { func: p, args: [state, scope, function(result){
+			if(result.success)
+				scope[name] = result.ast;
+			return k(result);
+		}]};
 	}
 };
 
-//returns the value of an identifier or applies the passed function to the bindings
+
 function ret(name, more){
 	var args;
 	if(more) 
 		args = slice(arguments);
 
-	return function(state, scope){
-		var ast, type = typeof name;
-		//if(args){
-		//	ast =  resolve(resolveBindings(args, scope));
-		//}else 
-		if(type == "string"){
-			if(!(name in scope))
-				throw 'Not in scope: "' + name + '"';
-			ast = scope[name];		
-		}else
-			ast = name(scope);
+	return function(state, scope, k){
 
-		return make_result(state, "", ast);
+		return { func: function(){
+			var ast, type = typeof name;
+			//if(args){
+			//	ast =  resolve(resolveBindings(args, scope));
+			//}else 
+			if(type == "string"){
+				if(!(name in scope))
+					throw 'Not in scope: "' + name + '"';
+				ast = scope[name];		
+			}else
+				ast = name(scope);
+
+			return k(make_result(state, "", ast));
+
+		}};
 	}
 }
 
@@ -1034,8 +1058,8 @@ function setParserState(id){ return function(state, scope){
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
 //this function does what `pure` and `return` do in Haskell
-function parserReturn(value){ return function(state, scope){
-	return make_result(state, "", value);
+function parserReturn(value){ return function(state, scope, k){
+	return {func: function(){ return k(make_result(state, "", value)); }}
 }}
 
 var return_ = parserReturn;
@@ -1052,13 +1076,14 @@ function ap(a, b){
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var parsecMap = makeAction(function(state, scope, f, p){
-		var result = p(state, scope);
-		if(!result.success)
-			return result;
-		result = extend({}, result);
-		result.ast = f(result.ast);
-		return result;
+var parsecMap = makeAction(function(state, scope, k, f, p){
+		return {func:p, args:[state, scope, function(result){
+				if(!result.success)
+					return k(result);
+				result = extend({}, result);
+				result.ast = f(result.ast);
+				return k(result);
+		}]};
 	});
 
 
@@ -1083,52 +1108,67 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 
+var parserPlus2 = function(p1, p2){
+	return function(state, scope, k){
+		return {func: p1, args:[state, scope, function(result){
+			var errors =  [];
+
+			function handleError(result){
+				var err = result.expecting;
+				if(err){
+					if(isArray(err))
+						errors = errors.concat(err);
+					else
+						errors.push(err);
+				}
+				if(!result.success)
+					result.expecting = errors;
+				else
+					delete result.expecting;
+			}
+			
+			handleError(result);
+			
+			return (result.ast !== undefined) ? {func:k, args: [result]} :
+				{func: p2, args: [state, scope, function(result){
+					handleError(result);
+					return k(result);
+				}]}
+		}]};
+	}
+}
+
 // 'parserPlus' is a parser combinator that provides a choice between other parsers.
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var parserPlus = makeNP(function(state, scope, parsers){
-		var i = 0,
+var parserPlusN = makeNP(function(state, scope, k, parsers){
+		var i = 1,
 			l = parsers.length,
-			result,
-			ast,
-			errors = [];
+			result = parsers[0];
+		
+		for(; i < l; ++i)
+			result = parserPlus2(result, parsers[i]);
 
-		for(; i < l; ++i){
-			ast = (result = parsers[i](state, scope)).ast;
-			var err = result.expecting;
-			if(err){
-				if(isArray(err))
-					errors = errors.concat(err);
-				else
-					errors.push(err);
-			}
-			if(ast !== undefined)
-				break;
-		}
-		result = extend({}, result);
-		if(!result.success)
-			result.expecting = (!errors.length && isArray(errors)) ? errors[0] : errors;
-		else
-			delete result.expecting;
-		return result;
+		return result(state, scope, k);
 	});
 
 var mplus = parserPlus;
 
 
-var try_ = make1P(function(state, scope, p){
+var try_ = make1P(function(state, scope, k, p){
 		var prevIndex = state.index,
-			prevLength = state.length,
-			result = p(state, scope);
+			prevLength = state.length;
 
-		if(result.success)
-			return result;
+		return {func: p, args: [state, scope, function(result){
+			if(result.success)
+				return k(result);
+			
+			state.index = prevIndex;
+			state.length = prevLength;
+			return k(_fail(state, result.expecting));
 		
-		state.index = prevIndex;
-		state.length = prevLength;
-		return _fail(state, result.expecting);
-
+		}]};
 	});
 
 
@@ -1204,18 +1244,26 @@ var skipMany = make1P(function(state, scope, p){
 		return result;
 	});
 
-var satisfy = make(function(state, scope, cond){
-		var fstchar = state.at(0);
-		return (state.length > 0 && cond(fstchar)) ?
-			make_result(state.scroll(1), fstchar, fstchar) : 
-			_fail(state, fstchar);
-	});
+var = function(cond){
+	return function(state, scope, k){
+		return {func: function(){
+			var fstchar = state.at(0);
+			return k((state.length > 0 && cond(fstchar)) ?
+						make_result(state.scroll(1), fstchar, fstchar) : 
+						_fail(state, fstchar));
+		}};
+	}
+};
 
-var char_ = make(function(state, scope, c){
-		return (state.length > 0 && state.at(0) == c) ?
-			make_result(state.scroll(1), c, c) : 
-			_fail(state, c);
-	});
+var char_ = function(c){
+	return function(state, scope, k){
+		return {func: function(){
+			return k((state.length > 0 && state.at(0) == c) ?
+						make_result(state.scroll(1), c, c) : 
+						_fail(state, c));
+		}};
+	}
+};
 
 var string = make(function(state, scope, s){
 	var startIndex = state.index;
