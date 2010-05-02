@@ -194,7 +194,7 @@ var parserPlus = function(p1, p2){
 			
 			handleError(result);
 			
-			return (result.ast !== undefined) ? k(result) :
+			return (result.ast !== undefined) ? {func:k, args: [result]} :
 				{func: p2, args: [state, scope, function(result){
 					handleError(result);
 					return k(result);
@@ -214,12 +214,12 @@ var char_ = function(c){
 };
 
 function return_(value){ return function(state, scope, k){
-	return k(make_result(state, "", value));
+return {func: function(){ return k(make_result(state, "", value)); }}
 }}
 
 
 //var limit=3*9000+4; //too much recursion (802 out of range 13)
-var limit=3*9000+3; //execute manually, then: InternalError: too much recursion
+//var limit=3*9000+3; //execute manually, then: InternalError: too much recursion
 
 /**/
 var st = ps(replicate(9000,"a").join("")); //ParseState object, with a string of 9000 "a"-s
