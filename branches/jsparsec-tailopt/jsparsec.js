@@ -1,7 +1,7 @@
 /*! 
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 0.0.4
+ * Version: 0.0.5
  * 
  * http://code.google.com/p/jsparsec/
  * 
@@ -290,6 +290,13 @@ var toInteger = parseInt; //TODO
 var fromInteger = id; //TODO
 
 var fromIntegral = id; //TODO
+
+function range(lower, upper){
+    return {
+		indexOf: function(ch){ return (ch >= lower && ch <= upper) ? true : -1 },
+		toString: function(){ return "range(" + lower + ", " + upper + ")" }
+	};
+}
 
 // -------------------------------------------------
 // Algebraic Data Types
@@ -660,15 +667,15 @@ var recurse = new Recurse();
 
 function cs(){
 
-	function rec(s){return p(s)}
+	function rec(state, scope, k){ return p(state, scope, k) }
 
 	var lines = [], p, resolved;
 
 	lines.push(resolve(arguments, rec));
 
-	function line(s){
-		if(s instanceof ParseState)
-			return (resolved ? p : line.resolve())(s);
+	function line(state, scope, k){
+		if(state instanceof ParseState)
+			return (resolved ? p : line.resolve())(state, scope, k);
 			
 		lines.push(resolve(arguments, rec));
 		return line;
@@ -825,7 +832,7 @@ function make_result(remaining, matched, ast, success, expecting){
 				success: success, expecting: expecting };
 }
 
-var EmptyOk = function(state){
+var _EmptyOk = function(state){
 	return make_result(state, "", undef);
 }
 
@@ -835,19 +842,23 @@ function _fail(state, expecting){
 
 
 //accepts an identifier string, see usage with notFollowedBy
-function unexpected(name){ return function(state, scope){
-	return make_result(state, "", null, false, {unexpected: scope[name]});
-}}
+function unexpected(name){
+	return function(state, scope, k){
+		return k(make_result(state, "", null, false, {unexpected: scope[name]}));
+	}
+}
 
-function parserFail(msg){ return function(state){
-	return make_result(state, "", undef, false, msg);
-}};
+function parserFail(msg){
+	return function(state, scope, k){
+		return k(make_result(state, "", undef, false, msg));
+	}
+};
 
 var fail = parserFail;
 
 
-function parserZero(state){
-	return make_result(state, "", undef, false);
+function parserZero(state, scope, k){
+	return k(make_result(state, "", undef, false));
 }
 
 var mzero = parserZero;
@@ -937,15 +948,15 @@ function _make(fn, show, p1, p2, pN, action){
 		opt1 = p2 ? toParser(opt1) : opt1;
 		p = action ? curry(p) : p;
 
-		var ret = function(state, scope) {
-			var result = state.getCached(pid);
-			if(result !== undef)
-				return result;
-			result = fn(state, scope,
+		var ret = function(state, scope, k) {
+			//var result = state.getCached(pid);
+			//if(result !== undef)
+			//	return result;
+			var result = fn(state, scope, k,
 						p1 ? (p.length ? p : p()) : p,
 						p2 ? (opt1.length ? opt1 : opt1()) : opt1);
 
-			state.putCached(pid, result);
+			//state.putCached(pid, result);
 
 			return result;
 		}
@@ -966,8 +977,12 @@ var makeNP     = function(fn, show){return _make(fn, show, false, false, true)};
 var makeAction = function(fn, show){return _make(fn, show, false, true, false, true)};
 
 
-function parserBind(p,f){ 
-	return function(state, scope){ return f(p(state, scope)) }
+function parserBind(p, f){ 
+	return function(state, scope, k){
+		return {func:p, args:[state, scope, function(result){
+			return k(f(result));
+		}]};
+	};
 }
 
 
@@ -987,7 +1002,7 @@ var do_ = makeNP(function(state, _scope, k, parsers){
 		scope.scope = _scope;
 
 		for(; i < l; ++i)
-			result = tdo2(result, parsers[i]);
+			result = do2(result, parsers[i]);
 
 		return result(state, scope, k);
 	});
@@ -1046,21 +1061,25 @@ function withBound(fn){
 
 var returnCall = compose(ret, withBound);
 
-function getParserState(state){
-	return make_result(state, "", state.index);
+function getParserState(state, scope, k){
+	return k(make_result(state, "", state.index));
 }
 
-function setParserState(id){ return function(state, scope){
-	state.scrollTo(scope[id]);
-	return EmptyOk(state);
-}}
+function setParserState(id){
+	return function(state, scope, k){
+		state.scrollTo(scope[id]);
+		return k(_EmptyOk(state));
+	}
+}
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
 //this function does what `pure` and `return` do in Haskell
-function parserReturn(value){ return function(state, scope, k){
-	return {func: function(){ return k(make_result(state, "", value)); }}
-}}
+function parserReturn(value){
+	return function(state, scope, k){
+		return k(make_result(state, "", value));
+	}
+}
 
 var return_ = parserReturn;
 var pure = return_;
@@ -1090,25 +1109,20 @@ var parsecMap = makeAction(function(state, scope, k, f, p){
 var fmap = parsecMap;
 var liftM = fmap;
 var liftA = liftM;
-var liftA2 = function(f, a, b){ return ap(fmap(f, a), b) };
+var liftA2 = function(f, a, b   ){ return ap(   fmap(f, a), b)     };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
 
 
-// Given a parser that produces an array as an ast, returns a
-// parser that produces an ast with the array joined by a separator.
-function join_action(p, sep) {
-    return fmap(function(ast) { return ast.join(sep); }, p);
-}
-
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
-function skip_fst(p1, p2){ return do_(p1, p2) }
+//function skip_fst(p1, p2){ return do_(p1, p2) }
+var skip_fst = do2;
 
 //var skip_snd = function(p1, p2){ return liftA2(const_, p1, p2) };
 function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 
-var parserPlus2 = function(p1, p2){
+var parserPlus = function(p1, p2){
 	return function(state, scope, k){
 		return {func: p1, args:[state, scope, function(result){
 			var errors =  [];
@@ -1148,7 +1162,7 @@ var parserPlusN = makeNP(function(state, scope, k, parsers){
 			result = parsers[0];
 		
 		for(; i < l; ++i)
-			result = parserPlus2(result, parsers[i]);
+			result = parserPlus(result, parsers[i]);
 
 		return result(state, scope, k);
 	});
@@ -1176,155 +1190,175 @@ var try_ = make1P(function(state, scope, k, p){
 //evaluates them in order and
 //succeeds if all the parsers succeeded
 //fails when a parser fails but returns the array of previous ASTs in the result
-var tokens = makeNP(function(state, scope, parsers){
-		var matched = "",
-			ast = [],
-			i = 0,
+var tokens = function(parsers){
+	return function(state, scope, k){
+		var i = 1,
 			l = parsers.length,
-			p, result;
+            ast = [],
+			result = parsers[0];
+		
+		for(; i < l; ++i)
+			result = tokens2(result, parsers[i], ast);
 
-		for(; i < l; ++i){
-			p = parsers[i];
-			result = (p.length ? p : p())(state, scope);
-			matched += result.matched;
-			if(!result.success)
-				break;
-			if(result.ast !== undef)
-				ast.push(result.ast);
-			
-		}
-		result = extend({}, result);
-		result.matched = matched;
-		result.ast = ast;
+		return result(state, scope, function(_result){
+            var result = extend({}, _result);
+            result.ast = ast;
+            return k(result);
+        });
+	}
+};
 
-		return result;
-	});
+var tokens2 = function(p1, p2, ast){
+	return function(state, scope, k){
+        return {func:p1, args:[state, scope, function(result1){
+			if(!result1.success)
+				return k(result1);
+                
+			if(result1.ast !== undef)
+				ast.push(result1.ast);
+                
+            return {func:p2, args:[state, scope, function(result2){
+                if(!result2.success)
+                    return k(result2);
+                
+                if(result2.ast !== undef)
+                    ast.push(result2.ast);
+                return k(result2);
+            }]};
+		}]};
+
+	}
+};
+
 
 
 function _many(onePlusMatch){ 
-	return make1P(function(state, scope, p){
-		var ast = [],
-			matched = "",
-			prevIndex = state.index,
-			result = p(state, scope);
-
-		if(onePlusMatch && !result.success) 
-			return _fail(state);
-		
-		while(result.success) {
-			if(result.ast !== undef)
-				ast.push(result.ast);
-			matched += result.matched;
-			if(state.index == prevIndex)
-				break;
-					
-			prevIndex = state.index;
-			result = p(state, scope);
-			
-		}
-		result = extend({}, result);
-		result.matched = matched;
-		result.ast = ast;
-		result.success = state.index == prevIndex;
-		if(result.success)
-			delete result.expecting;
-		return result;	
-	});
+    return function(parser){
+        return function(state, scope, k){
+            var matchedOne = false,
+                ast = []
+                prevIndex = state.index;
+            
+            function next(parser){
+                return function(state, scope, k){
+                    return {func:parser, args:[state, scope, function(result){
+                        if(!result.success){
+                            if(!onePlusMatch || (matchedOne && onePlusMatch)){
+                                return (state.index == prevIndex) ?
+                                            k(make_result(state, "", undef)) :
+                                            k(result);
+                            }else
+                                return k(result);
+                        }
+                        matchedOne = true;
+                        if(result.ast !== undef)
+                            ast.push(result.ast);
+                        if(state.index == prevIndex)
+                            return k(result);
+                                
+                        prevIndex = state.index;
+                        return next(parser)(state, scope, k);
+                    }]};
+                }
+            };
+    
+            return {func:next(parser), args:[state, scope, function(_result){
+                var result = extend({}, _result);
+                result.success = state.index == prevIndex;
+                result.ast = ast;
+                if(result.success)
+                    delete result.expecting;                    
+                return k(result);
+            }]};
+        }
+    };
 }
-
 
 var many = _many(false);
 
 var many1 = _many(true);
 
-var skipMany = make1P(function(state, scope, p){
-		var result = many(p)(state, scope);
-		result = extend({}, result);
-		result.ast = undef;
-		return result;
-	});
-
-var = function(cond){
+var skipMany = function(p){
 	return function(state, scope, k){
-		return {func: function(){
-			var fstchar = state.at(0);
-			return k((state.length > 0 && cond(fstchar)) ?
-						make_result(state.scroll(1), fstchar, fstchar) : 
-						_fail(state, fstchar));
-		}};
+		return {func: many(p), args:[state, scope, function(result){
+			result = extend({}, result);
+			result.ast = undef;
+			return k(result);
+		}]};
+	}
+};
+
+var satisfy = function(cond){
+	return function(state, scope, k){
+		var fstchar = state.at(0);
+		return k((state.length > 0 && cond(fstchar)) ?
+					make_result(state.scroll(1), fstchar, fstchar) : 
+					_fail(state, fstchar));
 	}
 };
 
 var char_ = function(c){
 	return function(state, scope, k){
-		return {func: function(){
-			return k((state.length > 0 && state.at(0) == c) ?
-						make_result(state.scroll(1), c, c) : 
-						_fail(state, c));
-		}};
+		return k((state.length > 0 && state.at(0) == c) ?
+					make_result(state.scroll(1), c, c) : 
+					_fail(state, c));
 	}
 };
 
-var string = make(function(state, scope, s){
-	var startIndex = state.index;
-	var result = tokens.apply(null, map(char_, s))(state, scope);
-	result.ast = result.ast.join("");
-	result = extend({}, result);
-	if(!result.success)
-		result.expecting = {at:startIndex, expecting: s};
-	else delete result.expecting;
-	if(!result.ast.length)
-		result.ast = undef;
-	return result;
-});
+var string = function(s){
+	return function(state, scope, k){
+		var startIndex = state.index;
+		
+		return {func: tokens(map(char_, s)), args: [state, scope, function(result){
+				result.ast = result.ast.join("");
+				result = extend({}, result);
+				if(!result.success)
+					result.expecting = {at:startIndex, expecting: s};
+				else delete result.expecting;
+				if(!result.ast.length) //TODO
+					result.ast = undef;
+				return k(result);
+		}]};
+	}
+};
 
 
-
-function range(lower, upper){
-    return {
-		indexOf: function(ch){ return (ch >= lower && ch <= upper) ? true : -1 },
-		toString: function(){ return "range(" + lower + ", " + upper + ")" }
-	};
-}
-
-var optional_old = make1P(function(state, scope, p){
-		var result = p(state, scope);
-		if(!result.success && !result.matched.length){
-			result = extend({}, result);
-			delete result.expecting;
-			result.success = true;
-		}
-		return result;
-	});
-
-
-var label = make1P(function(state, scope, p, str){
+var label = function(p, str){
+	return function(state, scope, k){
 		var prevIndex = state.index;
-		var result = p(state, scope);
-		if(!result.success){
-			result = extend({}, result);
-			result.expecting = {at: prevIndex, expecting: str};
-		}
-		return result;
-	});
+
+		return {func:p, args:[state, scope, function(){
+			if(!result.success){
+				result = extend({}, result);
+				result.expecting = {at: prevIndex, expecting: str};
+			}
+			return k(result);	
+		}]};
+	}
+};
 
 
 //accepts a regexp or a string
 //in case of a string it either matches the whole string or nothing
-var match = make(function(state, scope, sr){
+var match = function(sr){
+	return function(state, scope, k){
+		var result;
 		if(typeof sr == "string")
-			return (state.substring(0, sr.length) == sr) ?
-				make_result(state.scroll(sr.length), sr, sr) : _fail(state, sr);
-		if(sr.exec){
+			result = (state.substring(0, sr.length) == sr) ?
+						make_result(state.scroll(sr.length), sr, sr) : 
+						_fail(state, sr);
+		else if(sr.exec){
 			sr = new RegExp("^" + sr.source);
 			var substr = state.substring(0);
 			var match = sr.exec(substr);
 			match = match && match[0];
 			var length = match && match.length;
 			var matched = substr.substr(0, length);
-			return length ? make_result(state.scroll(length), matched, matched) : _fail(state, sr.source.substr(1));
+			result = length ? make_result(state.scroll(length), matched, matched) : _fail(state, sr.source.substr(1));
 		}
-	});
+		return k(result);
+	};
+};
 
 
 //from Control.Monad
@@ -1780,7 +1814,7 @@ function sepEndBy1(p, sep){
 				sep,
 				//bind("xs", sepEndBy(p, sep)),
 				//thanks to eager evaluation this doesn't terminate without eta-expansion
-				bind("xs", function(state){ return sepEndBy(p, sep)(state) }),
+				bind("xs", function(state, scope, k){ return sepEndBy(p, sep)(state, scope, k) }),
 				ret(function(scope){ return cons(scope.scope.x, scope.xs) })
 			),
 			ret(function(scope){ return [scope.x] })
@@ -1901,15 +1935,15 @@ function chainl(p, op, x){
 function chainl1(p, op){
 	var scan =	do_( 
 					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
+					function(state, scope, k){ return rest(scope.x)(state, scope, k) }
 				);
 
 	function rest(x){ 
 		var a = do_(
 					bind("f", op),
 					bind("y", p),
-					function(state, scope){
-						return rest(scope.f(x, scope.y))(state, scope)
+					function(state, scope, k){
+						return rest(scope.f(x, scope.y))(state, scope, k);
 					}
 				);
 		return parserPlus(a, return_(x));
@@ -1939,15 +1973,15 @@ function chainl1(p, op){
 function chainr1(p, op){
 	var scan =	do_( 
 					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
+					function(state, scope, k){ return rest(scope.x)(state, scope, k) }
 				);
 
 	function rest(x){ 
 		var a = do_(
 					bind("f", op),
 					bind("y", scan),
-					function(state, scope){
-						return make_result(s, "", scope.f(x, scope.y))
+					function(state, scope, k){
+						return k(make_result(s, "", scope.f(x, scope.y)));
 					}
 				);
 		return parserPlus(a, return_(x));
@@ -1971,9 +2005,9 @@ function chainr1(p, op){
 //anyToken            = tokenPrim show (\pos _tok _toks -> pos) Just
 //
 
-function anyToken(state){
+function anyToken(state, scope, k){
 	var at = state.at(0);
-	return at.length ? make_result(state.scroll(1), at, at) : _fail(state);
+	return k(at.length ? make_result(state.scroll(1), at, at) : _fail(state));
 }
 
 
@@ -1988,8 +2022,8 @@ function anyToken(state){
 
 // this works too:
 // var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
-function eof(state){
-    return make_result(state, "", undef, !state.length, state.length ? "end of input" : undef);
+function eof(state, scope, k){
+    return k(make_result(state, "", undef, !state.length, state.length ? "end of input" : undef));
 }
 
 //-- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
@@ -2044,7 +2078,7 @@ function notFollowedBy(p){
 
 function manyTill(p, end){
 
-	function _scan(state){ return scan(state) }
+	function _scan(state, scope, k){ return scan(state, scope, k) }
 
 	var scan = parserPlus(
 		do_( end, return_([]) ),
@@ -2971,7 +3005,7 @@ function fractExponent(n){
 //                        }
 
 var floating        = cs( "n" ,"<-", decimal)
-                        ( function(state, scope){ return fractExponent(scope.n)(state) }).resolve();
+                        ( function(state, scope, k){ return fractExponent(scope.n)(state, scope, k) }).resolve();
 
 
 //    fractFloat n    = do{ f <- fractExponent n
@@ -2991,8 +3025,8 @@ function fractFloat(n){
 //                        }
 
 var decimalFloat    = cs( "n" ,"<-", decimal )
-                        ( function(state, scope){ 
-	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope);
+                        ( function(state, scope, k){ 
+	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope, k);
                         }).resolve();
 
 
@@ -3112,9 +3146,9 @@ var oper =
 var operator =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", oper )
-          ( function(state, scope){
+          ( function(state, scope, k){
 					return (isReservedOp(scope.name) ? 
-						unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope);
+						unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope, k);
           })].resolve();
 
 
@@ -3202,11 +3236,11 @@ var ident
 var identifier =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", ident )
-          ( function(state, scope){
+          ( function(state, scope, k){
 				return ( isReservedName(scope.name) ? 
 							unexpected("reserved word " + scope.name) : 
 							return_(scope.name)
-						)(state, scope);
+						)(state, scope, k);
           })].resolve();
 
 
@@ -3299,230 +3333,4 @@ var theReservedNames = languageDef.caseSensitive ?
         commaSep1  : commaSep1
     });
 }
-
-// -------------------------------------------------
-// Language
-// -------------------------------------------------
-
-
-//-- A helper module that defines some language definitions that can be used
-//-- to instantiate a token parser (see "Text.Parsec.Token").
-
-//module Text.Parsec.Language
-//    ( haskellDef, haskell
-//    , mondrianDef, mondrian
-//    , emptyDef
-//    , haskellStyle
-//    , javaStyle
-//    , LanguageDef
-//    , GenLanguageDef
-//    ) where
-//
-//import Text.Parsec
-//import Text.Parsec.Token
-
-
-//-----------------------------------------------------------
-//-- minimal language definition
-//--------------------------------------------------------
-//
-//-- TODO: This seems wrong
-//-- < This is the most minimal token definition. It is recommended to use
-//-- this definition as the basis for other definitions. @emptyDef@ has
-//-- no reserved names or operators, is case sensitive and doesn't accept
-//-- comments, identifiers or operators.
-//
-//emptyDef   :: LanguageDef st
-//emptyDef    = LanguageDef
-//               { commentStart   = ""
-//               , commentEnd     = ""
-//               , commentLine    = ""
-//               , nestedComments = True
-//               , identStart     = letter <|> char '_'
-//               , identLetter    = alphaNum <|> oneOf "_'"
-//               , opStart        = opLetter emptyDef
-//               , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~"
-//               , reservedOpNames= []
-//               , reservedNames  = []
-//               , caseSensitive  = True
-//               }
-
-var emptyDefOpLetter = oneOf(":!#$%&*+./<=>?@\\^|-~");
-
-var emptyDef = GenLanguageDef.LanguageDef(record,
-               { commentStart   : ""
-               , commentEnd     : ""
-               , commentLine    : ""
-               , nestedComments : true
-               , identStart     : [letter   ,"<|>", char_('_')].resolve()
-               , identLetter    : [alphaNum ,"<|>", oneOf("_'")].resolve()
-               , opStart        : emptyDefOpLetter
-               , opLetter       : emptyDefOpLetter
-               , reservedOpNames: []
-               , reservedNames  : []
-               , caseSensitive  : true
-               });
-
-
-//-----------------------------------------------------------
-//-- Styles: haskellStyle, javaStyle
-//-----------------------------------------------------------
-//
-//-- | This is a minimal token definition for Haskell style languages. It
-//-- defines the style of comments, valid identifiers and case
-//-- sensitivity. It does not define any reserved words or operators.
-//
-//haskellStyle :: LanguageDef st
-//haskellStyle = emptyDef
-//                { commentStart   = "{-"
-//                , commentEnd     = "-}"
-//                , commentLine    = "--"
-//                , nestedComments = True
-//                , identStart     = letter
-//                , identLetter	   = alphaNum <|> oneOf "_'"
-//                , opStart	       = opLetter haskellStyle
-//                , opLetter	   = oneOf ":!#$%&*+./<=>?@\\^|-~"
-//                , reservedOpNames= []
-//                , reservedNames  = []
-//                , caseSensitive  = True
-//                }
-
-var haskellStyle = GenLanguageDef.LanguageDef(record,
-               { commentStart   : "{-"
-               , commentEnd     : "-}"
-               , commentLine    : "--"
-               , nestedComments : true
-               , identStart     : letter
-               , identLetter    : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
-               , opStart        : emptyDefOpLetter
-               , opLetter       : emptyDefOpLetter
-               , reservedOpNames: []
-               , reservedNames  : []
-               , caseSensitive  : true
-               });
-
-
-//-- | This is a minimal token definition for Java style languages. It
-//-- defines the style of comments, valid identifiers and case
-//-- sensitivity. It does not define any reserved words or operators.
-//
-//javaStyle  :: LanguageDef st
-//javaStyle   = emptyDef
-//		{ commentStart	 = "/*"
-//		, commentEnd	 = "*/"
-//		, commentLine	 = "//"
-//		, nestedComments = True
-//		, identStart	 = letter
-//		, identLetter	 = alphaNum <|> oneOf "_'"
-//		, reservedNames  = []
-//		, reservedOpNames= []
-//      , caseSensitive  = False
-//		}
-
-var javaStyle = GenLanguageDef.LanguageDef(record,
-               { commentStart    : "/*"
-               , commentEnd      : "*/"
-               , commentLine     : "//"
-               , nestedComments  : true
-               , identStart      : letter
-               , identLetter     : [alphaNum   ,"<|>", oneOf, "_'"].resolve()
-               , opStart         : emptyDefOpLetter
-               , opLetter        : emptyDefOpLetter
-               , reservedOpNames : []
-               , reservedNames   : []
-               , caseSensitive   : false //TODO: why?
-               });
-
-//-----------------------------------------------------------
-//-- Haskell
-//-----------------------------------------------------------
-
-
-//-- | The language definition for the language Haskell98.
-//
-//haskell98Def :: LanguageDef st
-//haskell98Def = haskellStyle
-//                { reservedOpNames= ["::","..","=","\\","|","<-","->","@","~","=>"]
-//                , reservedNames  = ["let","in","case","of","if","then","else",
-//                                    "data","type",
-//                                    "class","default","deriving","do","import",
-//                                    "infix","infixl","infixr","instance","module",
-//                                    "newtype","where",
-//                                    "primitive"
-//                                    -- "as","qualified","hiding"
-//                                   ]
-//                }
-
-var haskell98Def = haskellStyle.update(
-                { reservedOpNames : ["::","..","=","\\","|","<-","->","@","~","=>"]
-                , reservedNames   : ["let","in","case","of","if","then","else",
-                                     "data","type",
-                                     "class","default","deriving","do","import",
-                                     "infix","infixl","infixr","instance","module",
-                                     "newtype","where",
-                                     "primitive"
-                                   // ,"as","qualified","hiding"
-                                    ]
-                });
-
-
-
-//-- | The language definition for the Haskell language.
-//
-//haskellDef  :: LanguageDef st
-//haskellDef   = haskell98Def
-//	        { identLetter	 = identLetter haskell98Def <|> char '#'
-//	        , reservedNames	 = reservedNames haskell98Def ++
-//    				   ["foreign","import","export","primitive"
-//    				   ,"_ccall_","_casm_"
-//    				   ,"forall"
-//    				   ]
-//                }
-
-var haskellDef = haskell98Def.update(
-	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
-	        , reservedNames : haskell98Def.reservedNames.concat(
-    				              ["foreign","import","export","primitive"
-                                  ,"_ccall_","_casm_"
-                                  ,"forall"
-                                  ])
-            });
-
-//-- | A lexer for the haskell language.
-//
-//haskell :: TokenParser st
-//haskell      = makeTokenParser haskellDef
-
-var haskell = makeTokenParser(haskellDef);
-
-
-//-----------------------------------------------------------
-//-- Mondrian
-//-----------------------------------------------------------
-
-//-- | The language definition for the language Mondrian.
-//
-//mondrianDef :: LanguageDef st
-//mondrianDef = javaStyle
-//		{ reservedNames = [ "case", "class", "default", "extends"
-//				  , "import", "in", "let", "new", "of", "package"
-//				  ]
-//                , caseSensitive  = True
-//		}
-
-
-var mondrianDef = javaStyle.update(
-		{ reservedNames : [ "case", "class", "default", "extends"
-				          , "import", "in", "let", "new", "of", "package"
-				          ]
-        , caseSensitive : true
-		});
-
-//-- | A lexer for the mondrian language.
-//
-//mondrian :: TokenParser st
-//mondrian    = makeTokenParser mondrianDef
-
-var mondrian = makeTokenParser(mondrianDef);
-
 

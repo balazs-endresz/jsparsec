@@ -192,7 +192,7 @@ function sepEndBy1(p, sep){
 				sep,
 				//bind("xs", sepEndBy(p, sep)),
 				//thanks to eager evaluation this doesn't terminate without eta-expansion
-				bind("xs", function(state){ return sepEndBy(p, sep)(state) }),
+				bind("xs", function(state, scope, k){ return sepEndBy(p, sep)(state, scope, k) }),
 				ret(function(scope){ return cons(scope.scope.x, scope.xs) })
 			),
 			ret(function(scope){ return [scope.x] })
@@ -313,15 +313,15 @@ function chainl(p, op, x){
 function chainl1(p, op){
 	var scan =	do_( 
 					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
+					function(state, scope, k){ return rest(scope.x)(state, scope, k) }
 				);
 
 	function rest(x){ 
 		var a = do_(
 					bind("f", op),
 					bind("y", p),
-					function(state, scope){
-						return rest(scope.f(x, scope.y))(state, scope)
+					function(state, scope, k){
+						return rest(scope.f(x, scope.y))(state, scope, k);
 					}
 				);
 		return parserPlus(a, return_(x));
@@ -351,15 +351,15 @@ function chainl1(p, op){
 function chainr1(p, op){
 	var scan =	do_( 
 					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
+					function(state, scope, k){ return rest(scope.x)(state, scope, k) }
 				);
 
 	function rest(x){ 
 		var a = do_(
 					bind("f", op),
 					bind("y", scan),
-					function(state, scope){
-						return make_result(s, "", scope.f(x, scope.y))
+					function(state, scope, k){
+						return k(make_result(s, "", scope.f(x, scope.y)));
 					}
 				);
 		return parserPlus(a, return_(x));
@@ -383,9 +383,9 @@ function chainr1(p, op){
 //anyToken            = tokenPrim show (\pos _tok _toks -> pos) Just
 //
 
-function anyToken(state){
+function anyToken(state, scope, k){
 	var at = state.at(0);
-	return at.length ? make_result(state.scroll(1), at, at) : _fail(state);
+	return k(at.length ? make_result(state.scroll(1), at, at) : _fail(state));
 }
 
 
@@ -400,8 +400,8 @@ function anyToken(state){
 
 // this works too:
 // var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
-function eof(state){
-    return make_result(state, "", undef, !state.length, state.length ? "end of input" : undef);
+function eof(state, scope, k){
+    return k(make_result(state, "", undef, !state.length, state.length ? "end of input" : undef));
 }
 
 //-- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
@@ -456,7 +456,7 @@ function notFollowedBy(p){
 
 function manyTill(p, end){
 
-	function _scan(state){ return scan(state) }
+	function _scan(state, scope, k){ return scan(state, scope, k) }
 
 	var scan = parserPlus(
 		do_( end, return_([]) ),

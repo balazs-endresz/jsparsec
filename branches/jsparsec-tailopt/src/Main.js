@@ -271,3 +271,10 @@ var toInteger = parseInt; //TODO
 var fromInteger = id; //TODO
 
 var fromIntegral = id; //TODO
+
+function range(lower, upper){
+    return {
+		indexOf: function(ch){ return (ch >= lower && ch <= upper) ? true : -1 },
+		toString: function(){ return "range(" + lower + ", " + upper + ")" }
+	};
+}

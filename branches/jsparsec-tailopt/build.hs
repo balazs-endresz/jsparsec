@@ -15,5 +15,5 @@ files = ["Main.js"
         ,"Char.js"
         ,"Combinator.js"
         ,"Token.js"
-        ,"Language.js"
+--        ,"Language.js"
         ]

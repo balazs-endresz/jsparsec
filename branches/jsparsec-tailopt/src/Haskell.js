@@ -367,15 +367,15 @@ var recurse = new Recurse();
 
 function cs(){
 
-	function rec(s){return p(s)}
+	function rec(state, scope, k){ return p(state, scope, k) }
 
 	var lines = [], p, resolved;
 
 	lines.push(resolve(arguments, rec));
 
-	function line(s){
-		if(s instanceof ParseState)
-			return (resolved ? p : line.resolve())(s);
+	function line(state, scope, k){
+		if(state instanceof ParseState)
+			return (resolved ? p : line.resolve())(state, scope, k);
 			
 		lines.push(resolve(arguments, rec));
 		return line;
