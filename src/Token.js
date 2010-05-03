@@ -896,7 +896,7 @@ function fractExponent(n){
 //                        }
 
 var floating        = cs( "n" ,"<-", decimal)
-                        ( function(state, scope){ return fractExponent(scope.n)(state) }).resolve();
+                        ( function(state, scope, k){ return fractExponent(scope.n)(state, scope, k) }).resolve();
 
 
 //    fractFloat n    = do{ f <- fractExponent n
@@ -916,8 +916,8 @@ function fractFloat(n){
 //                        }
 
 var decimalFloat    = cs( "n" ,"<-", decimal )
-                        ( function(state, scope){ 
-	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope);
+                        ( function(state, scope, k){ 
+	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope, k);
                         }).resolve();
 
 
@@ -1037,9 +1037,9 @@ var oper =
 var operator =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", oper )
-          ( function(state, scope){
+          ( function(state, scope, k){
 					return (isReservedOp(scope.name) ? 
-						unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope);
+						unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope, k);
           })].resolve();
 
 
@@ -1127,11 +1127,11 @@ var ident
 var identifier =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", ident )
-          ( function(state, scope){
+          ( function(state, scope, k){
 				return ( isReservedName(scope.name) ? 
 							unexpected("reserved word " + scope.name) : 
 							return_(scope.name)
-						)(state, scope);
+						)(state, scope, k);
           })].resolve();
 
 
