@@ -705,7 +705,7 @@ function ParseState(input, index) {
     this.input  = input;
     this.index  = index || 0;
     this.length = input.length - this.index;
-    this.cache  = { };
+    this.cache  = {};
     return this;
 }
 
@@ -768,7 +768,7 @@ ParseState.prototype = {
 		return result;
 	},
 
-	putCached: function(pid, cached) {
+	putCached: function(pid, index, cached) {
 		if(!this.memoize)
 			return false;
 		
@@ -781,7 +781,7 @@ ParseState.prototype = {
 		if(!p)
 			p = this.cache[pid] = { };
 
-		p[this.index - cached.matched.length] = cached;
+		p[index] = cached;
 	}
 
 	/*
@@ -826,31 +826,31 @@ function ps(str) {
 //                It might be an array of these values, which represents a choice.
 
 
-function make_result(remaining, matched, ast, success, expecting){
-	success = success === undef ? true : success;
-	return { remaining: remaining, matched: matched, ast: ast, 
-				success: success, expecting: expecting };
+function make_result(ast, success, expecting){
+	return  {ast: ast
+			,success: success === undef ? true : success
+            ,expecting: expecting
+            };
 }
 
-var _EmptyOk = function(state){
-	return make_result(state, "", undef);
-}
+var _EmptyOk = make_result(undef);
 
-function _fail(state, expecting){
-	return make_result(state, "", undef, false, expecting);
+
+function _fail(expecting){
+	return make_result(undef, false, expecting);
 }
 
 
 //accepts an identifier string, see usage with notFollowedBy
 function unexpected(name){
 	return function(state, scope, k){
-		return k(make_result(state, "", null, false, {unexpected: scope[name]}));
+		return k(make_result(null, false, {unexpected: scope[name]}));
 	}
 }
 
 function parserFail(msg){
 	return function(state, scope, k){
-		return k(make_result(state, "", undef, false, msg));
+		return k(make_result(undef, false, msg));
 	}
 };
 
@@ -858,7 +858,7 @@ var fail = parserFail;
 
 
 function parserZero(state, scope, k){
-	return k(make_result(state, "", undef, false));
+	return k(make_result(undef, false));
 }
 
 var mzero = parserZero;
@@ -903,9 +903,13 @@ function trampolineAsync(x) {
 }
 
 function run(p, strOrState, complete, error, async){
-	(async ? trampolineAsync : trampoline) ({func:p, args:[strOrState instanceof ParseState ? strOrState : ps(strOrState), {}, function(result){
+    var input = strOrState instanceof ParseState ? strOrState : ps(strOrState);
+	(async ? trampolineAsync : trampoline) ({func:p, args:[input, {}, function(result){
+        result.state = input;
+        delete result.index;
+        delete result.length;
 		if(!result.success){
-			result.error = processError(result.expecting, result.remaining);
+			result.error = processError(result.expecting, result.state);
 			error && error(result.error);
 		}else{
 			delete result.error;
@@ -923,8 +927,9 @@ function processError(e, s, i, unexp){
 			linecount = lines.length,
 			restlc = s.input.substr(index).split("\n").length,
 			line = linecount - restlc + 1,
-			lindex = index - lines.splice(0,line-1).join("\n").length;
-		return 'Unexpected "' + (unexp || s.input.substr(index, e.length).substr(0, 6)) +  
+			lindex = index - lines.splice(0,line-1).join("\n").length,
+            unexpMsg = unexp || s.input.substr(index, e.length).substr(0, 6);
+		return 'Unexpected "' + (unexpMsg.length ? unexpMsg : "end of file") +  
 				(unexp ? "" : ('", expecting "' + e)) + 
 				'" at line ' + line + ' char ' + lindex;
 	}
@@ -939,42 +944,6 @@ function processError(e, s, i, unexp){
 var parser_id = 0;
 
 function Parser(){}
-
-function _make(fn, show, p1, p2, pN, action){
-	return function(p, opt1){
-		var pid = parser_id++;
-		p = pN ? map(toParser, arguments) : p;
-		p = p1 ? toParser(p) : p;
-		opt1 = p2 ? toParser(opt1) : opt1;
-		p = action ? curry(p) : p;
-
-		var ret = function(state, scope, k) {
-			//var result = state.getCached(pid);
-			//if(result !== undef)
-			//	return result;
-			var result = fn(state, scope, k,
-						p1 ? (p.length ? p : p()) : p,
-						p2 ? (opt1.length ? opt1 : opt1()) : opt1);
-
-			//state.putCached(pid, result);
-
-			return result;
-		}
-		ret.constructor = Parser;
-		//ret.show = show;
-		return ret;
-	}
-}
-
-
-//true values apply toParser to the nth argument of the function
-var make       = function(fn, show){return _make(fn, show)};
-var make1P     = function(fn, show){return _make(fn, show, true)};
-var make2P     = function(fn, show){return _make(fn, show, true, true)};
-//apply toParser to all:
-var makeNP     = function(fn, show){return _make(fn, show, false, false, true)}; 
-//curries the first arg:
-var makeAction = function(fn, show){return _make(fn, show, false, true, false, true)};
 
 
 function parserBind(p, f){ 
@@ -993,7 +962,9 @@ var do2 = function(p1, p2){
 		}]};
 }};
 
-var do_ = makeNP(function(state, _scope, k, parsers){
+var do_ = function(p1, p2, p3 /* ... */){
+    var parsers = map(toParser, arguments);
+    return function(state, _scope, k){
 		var scope = {},
 			i = 1,
 			l = parsers.length,
@@ -1005,7 +976,8 @@ var do_ = makeNP(function(state, _scope, k, parsers){
 			result = do2(result, parsers[i]);
 
 		return result(state, scope, k);
-	});
+	}
+};
 
 
 function bind(name, p){ 
@@ -1040,7 +1012,7 @@ function ret(name, more){
 			}else
 				ast = name(scope);
 
-			return k(make_result(state, "", ast));
+			return k(make_result(ast));
 
 		}};
 	}
@@ -1062,13 +1034,13 @@ function withBound(fn){
 var returnCall = compose(ret, withBound);
 
 function getParserState(state, scope, k){
-	return k(make_result(state, "", state.index));
+	return k(make_result(state.index));
 }
 
 function setParserState(id){
 	return function(state, scope, k){
 		state.scrollTo(scope[id]);
-		return k(_EmptyOk(state));
+		return k(_EmptyOk);
 	}
 }
 
@@ -1077,7 +1049,7 @@ function setParserState(id){
 //this function does what `pure` and `return` do in Haskell
 function parserReturn(value){
 	return function(state, scope, k){
-		return k(make_result(state, "", value));
+		return k(make_result(value));
 	}
 }
 
@@ -1095,7 +1067,9 @@ function ap(a, b){
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var parsecMap = makeAction(function(state, scope, k, f, p){
+var parsecMap = function(f, p){
+    f = curry(f);
+    return function(state, scope, k){
 		return {func:p, args:[state, scope, function(result){
 				if(!result.success)
 					return k(result);
@@ -1103,8 +1077,8 @@ var parsecMap = makeAction(function(state, scope, k, f, p){
 				result.ast = f(result.ast);
 				return k(result);
 		}]};
-	});
-
+	};
+}
 
 var fmap = parsecMap;
 var liftM = fmap;
@@ -1156,7 +1130,9 @@ var parserPlus = function(p1, p2){
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var parserPlusN = makeNP(function(state, scope, k, parsers){
+var parserPlusN = function(p1, p2, p3 /* ... */){
+    var parsers = map(toParser, arguments);
+    return function(state, scope, k){
 		var i = 1,
 			l = parsers.length,
 			result = parsers[0];
@@ -1165,32 +1141,19 @@ var parserPlusN = makeNP(function(state, scope, k, parsers){
 			result = parserPlus(result, parsers[i]);
 
 		return result(state, scope, k);
-	});
+	}
+};
 
 var mplus = parserPlus;
 
 
-var try_ = make1P(function(state, scope, k, p){
-		var prevIndex = state.index,
-			prevLength = state.length;
-
-		return {func: p, args: [state, scope, function(result){
-			if(result.success)
-				return k(result);
-			
-			state.index = prevIndex;
-			state.length = prevLength;
-			return k(_fail(state, result.expecting));
-		
-		}]};
-	});
 
 
 //accepts multiple parsers and returns a new parser that
 //evaluates them in order and
 //succeeds if all the parsers succeeded
 //fails when a parser fails but returns the array of previous ASTs in the result
-var tokens = function(parsers){
+var tokens = function(parsers){ //TODO: rewrite like many
 	return function(state, scope, k){
 		var i = 1,
 			l = parsers.length,
@@ -1232,11 +1195,11 @@ var tokens2 = function(p1, p2, ast){
 
 
 
-function _many(onePlusMatch){ 
+function _many(onePlusMatch){ //TODO: many1 doesn't fail
     return function(parser){
         return function(state, scope, k){
             var matchedOne = false,
-                ast = []
+                ast = [],
                 prevIndex = state.index;
             
             function next(parser){
@@ -1245,7 +1208,7 @@ function _many(onePlusMatch){
                         if(!result.success){
                             if(!onePlusMatch || (matchedOne && onePlusMatch)){
                                 return (state.index == prevIndex) ?
-                                            k(make_result(state, "", undef)) :
+                                            k(make_result(undef)) :
                                             k(result);
                             }else
                                 return k(result);
@@ -1278,6 +1241,79 @@ var many = _many(false);
 
 var many1 = _many(true);
 
+
+//tokenPrim :: (a -> ParseState -> Result) -> (a -> Parser)
+function tokenPrim(fn){
+    return function(c){
+        var pid = parser_id++;
+        var combinator = function(state, scope, k){
+            var startIndex = state.index;
+            var result = state.getCached(pid);
+            if(result !== undef)
+                return k(result);
+                
+            result = fn(c, state);
+                        
+            state.putCached(pid, startIndex, result);
+            return k(result);
+        };
+        combinator.constructor = Parser;
+        return combinator;
+    };
+}
+
+//tokenPrimP1 :: (arg2 -> parser1Result -> ParseState -> startIndex -> newResult)
+//              -> (Parser -> arg2 -> Parser)
+function tokenPrimP1(fn){
+    return function(p1, arg2){
+        var pid = parser_id++;
+        var combinator = function(state, scope, k){
+            var startIndex = state.index;
+            var result = state.getCached(pid);
+            if(result !== undef)
+                return k(result);
+                
+            return {func:p1, args:[state, scope, function(result){
+                
+                    result = fn(arg2, result, state, startIndex);
+                    
+                    state.putCached(pid, startIndex, result);
+                    return k(result);
+                }]};
+            
+        };
+        combinator.constructor = Parser;
+        return combinator;
+    };
+}
+
+
+/*
+var try_ = make1P(function(state, scope, k, p){
+		var prevIndex = state.index,
+			prevLength = state.length;
+
+		return {func: p, args: [state, scope, function(result){
+			if(result.success)
+				return k(result);
+			
+			state.index = prevIndex;
+			state.length = prevLength;
+			return k(_fail(state, result.expecting));
+		
+		}]};
+	});
+*/
+
+var try_ = tokenPrimP1(function(_, result, state, startIndex){
+	if(result.success)
+		return result;
+	state.scrollTo(startIndex);
+	return _fail(result.expecting);
+});
+
+
+/*
 var skipMany = function(p){
 	return function(state, scope, k){
 		return {func: many(p), args:[state, scope, function(result){
@@ -1287,16 +1323,16 @@ var skipMany = function(p){
 		}]};
 	}
 };
-
-var satisfy = function(cond){
-	return function(state, scope, k){
-		var fstchar = state.at(0);
-		return k((state.length > 0 && cond(fstchar)) ?
-					make_result(state.scroll(1), fstchar, fstchar) : 
-					_fail(state, fstchar));
-	}
+*/
+var skipMany = function(p){
+    return tokenPrimP1(function(_, result, state, startIndex){
+			result = extend({}, result);
+			result.ast = undef;
+			return result;
+    })(many(p), null);
 };
 
+/*
 var char_ = function(c){
 	return function(state, scope, k){
 		return k((state.length > 0 && state.at(0) == c) ?
@@ -1304,12 +1340,53 @@ var char_ = function(c){
 					_fail(state, c));
 	}
 };
+*/
 
+//string :: Char -> Parser
+var char_ = tokenPrim(function(c, state){ //TODO: now it's: try (char c)
+    var result;
+    if(state.length > 0 && state.at(0) == c){
+        state.scroll(1);
+		result = make_result(c);
+    }else
+        result = _fail(c);
+       
+    return result;
+});
+
+/*
+var satisfy = function(cond){
+	return function(state, scope, k){
+		var fstchar = state.at(0), result;
+		if(state.length > 0 && cond(fstchar)){
+            state.scroll(1)
+			result = make_result(fstchar)
+        }else
+			result = _fail(fstchar);
+        return k(result);
+	}
+};
+*/
+
+//string :: (Char -> Bool) -> Parser
+var satisfy = tokenPrim(function(cond, state){
+    var fstchar = state.at(0), result;
+	if(state.length > 0 && cond(fstchar)){
+        state.scroll(1);
+		result = make_result(fstchar);
+    }else
+		result = _fail(fstchar);
+    return result;
+});
+
+
+/*
 var string = function(s){
+    var p = tokens(map(char_, s));
 	return function(state, scope, k){
 		var startIndex = state.index;
 		
-		return {func: tokens(map(char_, s)), args: [state, scope, function(result){
+		return {func: p, args: [state, scope, function(result){
 				result.ast = result.ast.join("");
 				result = extend({}, result);
 				if(!result.success)
@@ -1321,8 +1398,25 @@ var string = function(s){
 		}]};
 	}
 };
+*/
+
+//string :: String -> Parser
+var string = function(s){ //TODO
+    return tokenPrimP1(function(_, result, state, startIndex){
+			result.ast = result.ast.join("");
+			result = extend({}, result);
+				if(!result.success)
+				result.expecting = {at:startIndex, expecting: s};
+			else delete result.expecting;
+			if(!result.ast.length) //TODO
+				result.ast = undef;
+			return result;
+    })(tokens(map(char_, s)), null);
+};
 
 
+
+/*
 var label = function(p, str){
 	return function(state, scope, k){
 		var prevIndex = state.index;
@@ -1335,30 +1429,50 @@ var label = function(p, str){
 			return k(result);	
 		}]};
 	}
-};
+
+*/
+
+
+//tokenPrimP1 :: (a -> parser1Result -> ParseState -> startIndex -> newResult)
+//              -> (Parser -> a -> Parser)
+//label :: Parser -> String -> Parser
+var label = tokenPrimP1(function(str, result, state, startIndex){
+    if(!result.success){
+		result = extend({}, result);
+		result.expecting = {at: startIndex, expecting: str};
+	}
+	return result;	
+});
 
 
 //accepts a regexp or a string
 //in case of a string it either matches the whole string or nothing
-var match = function(sr){
-	return function(state, scope, k){
+
+//match :: StringOrRegex -> Parser
+var match = tokenPrim(function(sr, state){
 		var result;
-		if(typeof sr == "string")
-			result = (state.substring(0, sr.length) == sr) ?
-						make_result(state.scroll(sr.length), sr, sr) : 
-						_fail(state, sr);
-		else if(sr.exec){
-			sr = new RegExp("^" + sr.source);
+		if(typeof sr == "string"){
+            if(state.substring(0, sr.length) == sr){
+                state.scroll(sr.length);
+                result = make_result(sr);
+            }else
+                result = _fail(sr);
+						
+        }else if(sr.exec){
+			var rx = new RegExp("^" + sr.source);
 			var substr = state.substring(0);
-			var match = sr.exec(substr);
+			var match = rx.exec(substr);
 			match = match && match[0];
 			var length = match && match.length;
 			var matched = substr.substr(0, length);
-			result = length ? make_result(state.scroll(length), matched, matched) : _fail(state, sr.source.substr(1));
+            if(length){
+                state.scroll(length);
+                result = make_result(matched);
+            }else
+                result = _fail(sr.source);
 		}
-		return k(result);
-	};
-};
+		return result;
+});
 
 
 //from Control.Monad
@@ -1451,6 +1565,7 @@ extend(operators, {
 		//,type:	[Parser, String, Parser]
 	}	
 });
+
 
 // -------------------------------------------------
 // Char
