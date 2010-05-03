@@ -1153,73 +1153,52 @@ var mplus = parserPlus;
 //evaluates them in order and
 //succeeds if all the parsers succeeded
 //fails when a parser fails but returns the array of previous ASTs in the result
-var tokens = function(parsers){ //TODO: rewrite like many
-	return function(state, scope, k){
-		var i = 1,
-			l = parsers.length,
+function tokens(parsers){
+    return function(state, scope, k){
+        var i = 0,
             ast = [],
-			result = parsers[0];
-		
-		for(; i < l; ++i)
-			result = tokens2(result, parsers[i], ast);
+            length = parsers.length;
+        
+        function next(parser){
+            return function(state, scope, k){
+                return {func:parser, args:[state, scope, function(result){
+                    i++;
+                    if(!result.success)
+                        return k(result);
+                    if(result.ast !== undef)
+                        ast.push(result.ast);
+                    return i < length ? next(parsers[i])(state, scope, k) : k(result);
+                }]};
+            }
+        };
 
-		return result(state, scope, function(_result){
+        return {func:next(parsers[i]), args:[state, scope, function(_result){
             var result = extend({}, _result);
             result.ast = ast;
+            if(result.success)
+                delete result.expecting;                    
             return k(result);
-        });
-	}
-};
-
-var tokens2 = function(p1, p2, ast){
-	return function(state, scope, k){
-        return {func:p1, args:[state, scope, function(result1){
-			if(!result1.success)
-				return k(result1);
-                
-			if(result1.ast !== undef)
-				ast.push(result1.ast);
-                
-            return {func:p2, args:[state, scope, function(result2){
-                if(!result2.success)
-                    return k(result2);
-                
-                if(result2.ast !== undef)
-                    ast.push(result2.ast);
-                return k(result2);
-            }]};
-		}]};
-
-	}
-};
+        }]};
+    }
+}
 
 
-
-function _many(onePlusMatch){ //TODO: many1 doesn't fail
+function _many(onePlusMatch){
     return function(parser){
         return function(state, scope, k){
             var matchedOne = false,
-                ast = [],
-                prevIndex = state.index;
+                ast = [];
             
             function next(parser){
                 return function(state, scope, k){
                     return {func:parser, args:[state, scope, function(result){
-                        if(!result.success){
-                            if(!onePlusMatch || (matchedOne && onePlusMatch)){
-                                return (state.index == prevIndex) ?
-                                            k(make_result(undef)) :
-                                            k(result);
-                            }else
-                                return k(result);
-                        }
+                        if(!result.success)
+                            return k(result);
+                            
                         matchedOne = true;
                         if(result.ast !== undef)
                             ast.push(result.ast);
-                        if(state.index == prevIndex)
-                            return k(result);
                                 
-                        prevIndex = state.index;
                         return next(parser)(state, scope, k);
                     }]};
                 }
@@ -1227,7 +1206,7 @@ function _many(onePlusMatch){ //TODO: many1 doesn't fail
     
             return {func:next(parser), args:[state, scope, function(_result){
                 var result = extend({}, _result);
-                result.success = state.index == prevIndex;
+                result.success = !onePlusMatch || (matchedOne && onePlusMatch);
                 result.ast = ast;
                 if(result.success)
                     delete result.expecting;                    
@@ -1242,7 +1221,7 @@ var many = _many(false);
 var many1 = _many(true);
 
 
-//tokenPrim :: (a -> ParseState -> Result) -> (a -> Parser)
+//tokenPrim :: (a -> ParseState -> startIndex -> Result) -> (a -> Parser)
 function tokenPrim(fn){
     return function(c){
         var pid = parser_id++;
@@ -1252,7 +1231,7 @@ function tokenPrim(fn){
             if(result !== undef)
                 return k(result);
                 
-            result = fn(c, state);
+            result = fn(c, state, startIndex);
                         
             state.putCached(pid, startIndex, result);
             return k(result);
@@ -1288,23 +1267,6 @@ function tokenPrimP1(fn){
 }
 
 
-/*
-var try_ = make1P(function(state, scope, k, p){
-		var prevIndex = state.index,
-			prevLength = state.length;
-
-		return {func: p, args: [state, scope, function(result){
-			if(result.success)
-				return k(result);
-			
-			state.index = prevIndex;
-			state.length = prevLength;
-			return k(_fail(state, result.expecting));
-		
-		}]};
-	});
-*/
-
 var try_ = tokenPrimP1(function(_, result, state, startIndex){
 	if(result.success)
 		return result;
@@ -1313,124 +1275,49 @@ var try_ = tokenPrimP1(function(_, result, state, startIndex){
 });
 
 
-/*
-var skipMany = function(p){
-	return function(state, scope, k){
-		return {func: many(p), args:[state, scope, function(result){
-			result = extend({}, result);
-			result.ast = undef;
-			return k(result);
-		}]};
-	}
-};
-*/
 var skipMany = function(p){
     return tokenPrimP1(function(_, result, state, startIndex){
-			result = extend({}, result);
-			result.ast = undef;
-			return result;
+		result = extend({}, result);
+		result.ast = undef;
+		return result;
     })(many(p), null);
 };
 
-/*
-var char_ = function(c){
-	return function(state, scope, k){
-		return k((state.length > 0 && state.at(0) == c) ?
-					make_result(state.scroll(1), c, c) : 
-					_fail(state, c));
-	}
-};
-*/
-
 //string :: Char -> Parser
-var char_ = tokenPrim(function(c, state){ //TODO: now it's: try (char c)
-    var result;
+var char_ = tokenPrim(function(c, state, startIndex){
     if(state.length > 0 && state.at(0) == c){
         state.scroll(1);
-		result = make_result(c);
-    }else
-        result = _fail(c);
-       
-    return result;
+        return make_result(c);
+    }
+    return _fail(c);
 });
 
-/*
-var satisfy = function(cond){
-	return function(state, scope, k){
-		var fstchar = state.at(0), result;
-		if(state.length > 0 && cond(fstchar)){
-            state.scroll(1)
-			result = make_result(fstchar)
-        }else
-			result = _fail(fstchar);
-        return k(result);
-	}
-};
-*/
 
 //string :: (Char -> Bool) -> Parser
 var satisfy = tokenPrim(function(cond, state){
-    var fstchar = state.at(0), result;
-	if(state.length > 0 && cond(fstchar)){
+    var fstchar = state.at(0);
+    if(state.length > 0 && cond(fstchar)){
         state.scroll(1);
-		result = make_result(fstchar);
-    }else
-		result = _fail(fstchar);
-    return result;
+        return make_result(fstchar);
+    }
+    return _fail(fstchar);
 });
 
 
-/*
-var string = function(s){
-    var p = tokens(map(char_, s));
-	return function(state, scope, k){
-		var startIndex = state.index;
-		
-		return {func: p, args: [state, scope, function(result){
-				result.ast = result.ast.join("");
-				result = extend({}, result);
-				if(!result.success)
-					result.expecting = {at:startIndex, expecting: s};
-				else delete result.expecting;
-				if(!result.ast.length) //TODO
-					result.ast = undef;
-				return k(result);
-		}]};
-	}
-};
-*/
 
 //string :: String -> Parser
 var string = function(s){ //TODO
     return tokenPrimP1(function(_, result, state, startIndex){
-			result.ast = result.ast.join("");
-			result = extend({}, result);
-				if(!result.success)
-				result.expecting = {at:startIndex, expecting: s};
-			else delete result.expecting;
-			if(!result.ast.length) //TODO
-				result.ast = undef;
-			return result;
+		result.ast = result.ast.join("");
+		result = extend({}, result);
+		if(!result.success)
+            result.expecting = {at:startIndex, expecting: s};
+		else delete result.expecting;
+		if(!result.ast.length) //TODO
+			result.ast = undef;
+		return result;
     })(tokens(map(char_, s)), null);
 };
-
-
-
-/*
-var label = function(p, str){
-	return function(state, scope, k){
-		var prevIndex = state.index;
-
-		return {func:p, args:[state, scope, function(){
-			if(!result.success){
-				result = extend({}, result);
-				result.expecting = {at: prevIndex, expecting: str};
-			}
-			return k(result);	
-		}]};
-	}
-
-*/
 
 
 //tokenPrimP1 :: (a -> parser1Result -> ParseState -> startIndex -> newResult)
