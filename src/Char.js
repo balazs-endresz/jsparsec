@@ -21,7 +21,7 @@
 //oneOf cs            = satisfy (\c -> elem c cs)
 
 var oneOf = function(cs){
-	return label(satisfy(function(c){ return elem(c, cs) }), "oneOf(" + cs + ")");
+    return label(satisfy(function(c){ return elem(c, cs) }), "oneOf(" + cs + ")");
 };
 
 // | As the dual of 'oneOf', @noneOf cs@ succeeds if the current
@@ -34,7 +34,7 @@ var oneOf = function(cs){
 //noneOf cs           = satisfy (\c -> not (elem c cs))
 
 var noneOf = function(cs){
-	return label(satisfy(function(c){ return !elem(c, cs) }), "noneOf(" + cs + ")");
+    return label(satisfy(function(c){ return !elem(c, cs) }), "noneOf(" + cs + ")");
 };
 
 

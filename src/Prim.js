@@ -12,95 +12,95 @@ function ParseState(input, index) {
 
 ParseState.prototype = {
 
-	memoize: false,
+    memoize: false,
 
-	scrollTo: function(index) {
-		this.index  = index;
-		this.length = this.input.length - index;
-		return this;
-	},
+    scrollTo: function(index) {
+        this.index  = index;
+        this.length = this.input.length - index;
+        return this;
+    },
 
-	scroll: function(index) {
-		this.index  += index;
-		this.length -= index;
-		return this;
-	},
-
-
-	at: function(index){
-		return this.input.charAt(this.index + index);
-	},
-
-	substring: function(start, end){
-		return this.input.substring(
-			start + this.index,
-			(end || this.length) + this.index);
-	},
-
-	substr: function(start, length){
-		return this.input.substring(
-			start + this.index,
-			length || this.length);
-	},
-
-	toString: function(){
-		var substr = this.substring(0);
-		return 'PS at ' + this.index + ' ' + 
-			(substr.length ? '"' + substr + '"' : "Empty"); 
-	},
-
-	getCached: function(pid) {
-		if(!this.memoize)
-			return;
-
-		var p = this.cache[pid];
-		if(!p)
-			return;
-
-		var result = p[this.index];
-
-		if(!result)
-			return;
-
-		//result.remaining === this
-		this.index  = result.index;
-		this.length = result.length;
-
-		return result;
-	},
-
-	putCached: function(pid, index, cached) {
-		if(!this.memoize)
-			return false;
-		
-		//cached.remaining === this
-		cached.index  = this.index;
-		cached.length = this.length;
+    scroll: function(index) {
+        this.index  += index;
+        this.length -= index;
+        return this;
+    },
 
 
-		var p = this.cache[pid];
-		if(!p)
-			p = this.cache[pid] = { };
+    at: function(index){
+        return this.input.charAt(this.index + index);
+    },
 
-		p[index] = cached;
-	}
+    substring: function(start, end){
+        return this.input.substring(
+            start + this.index,
+            (end || this.length) + this.index);
+    },
 
-	/*
+    substr: function(start, length){
+        return this.input.substring(
+            start + this.index,
+            length || this.length);
+    },
 
-	//returns a new state object
-	,from: function(index) {
-		var r = new ParseState(this.input, this.index + index);
-		r.cache  = this.cache;
-		r.length = this.length - index;
-		return r;
-	}
+    toString: function(){
+        var substr = this.substring(0);
+        return 'PS at ' + this.index + ' ' + 
+            (substr.length ? '"' + substr + '"' : "Empty"); 
+    },
 
-	,skipWhitespace: function(){
-		var m = this.substring(0).match(/^\s+/);
-		return m ? this.scroll(m[0].length) : this;
-	}
+    getCached: function(pid) {
+        if(!this.memoize)
+            return;
 
-	*/
+        var p = this.cache[pid];
+        if(!p)
+            return;
+
+        var result = p[this.index];
+
+        if(!result)
+            return;
+
+        //result.remaining === this
+        this.index  = result.index;
+        this.length = result.length;
+
+        return result;
+    },
+
+    putCached: function(pid, index, cached) {
+        if(!this.memoize)
+            return false;
+        
+        //cached.remaining === this
+        cached.index  = this.index;
+        cached.length = this.length;
+
+
+        var p = this.cache[pid];
+        if(!p)
+            p = this.cache[pid] = { };
+
+        p[index] = cached;
+    }
+
+    /*
+
+    //returns a new state object
+    ,from: function(index) {
+        var r = new ParseState(this.input, this.index + index);
+        r.cache  = this.cache;
+        r.length = this.length - index;
+        return r;
+    }
+
+    ,skipWhitespace: function(){
+        var m = this.substring(0).match(/^\s+/);
+        return m ? this.scroll(m[0].length) : this;
+    }
+
+    */
 };
 
 function ps(str) {
@@ -128,8 +128,8 @@ function ps(str) {
 
 
 function make_result(ast, success, expecting){
-	return  {ast: ast
-			,success: success === undef ? true : success
+    return  {ast: ast
+            ,success: success === undef ? true : success
             ,expecting: expecting
             };
 }
@@ -138,28 +138,28 @@ var _EmptyOk = make_result(undef);
 
 
 function _fail(expecting){
-	return make_result(undef, false, expecting);
+    return make_result(undef, false, expecting);
 }
 
 
 //accepts an identifier string, see usage with notFollowedBy
 function unexpected(name){
-	return function(state, scope, k){
-		return k(make_result(null, false, {unexpected: scope[name]}));
-	}
+    return function(state, scope, k){
+        return k(make_result(null, false, {unexpected: scope[name]}));
+    }
 }
 
 function parserFail(msg){
-	return function(state, scope, k){
-		return k(make_result(undef, false, msg));
-	}
+    return function(state, scope, k){
+        return k(make_result(undef, false, msg));
+    }
 };
 
 var fail = parserFail;
 
 
 function parserZero(state, scope, k){
-	return k(make_result(undef, false));
+    return k(make_result(undef, false));
 }
 
 var mzero = parserZero;
@@ -176,70 +176,70 @@ var empty = mzero;
 // and perform other implicit parser conversions.
 function toParser(p){
     return (typeof p == "string") ? string(p) : 
-		isArray(p) ? resolve(p) : p;
+        isArray(p) ? resolve(p) : p;
 }
 
 
 function trampoline(x){
-	while(x && x.func)
-		x = x.func.apply(null, x.args || []);
+    while(x && x.func)
+        x = x.func.apply(null, x.args || []);
 }
 
 var trampolineCount = 0;
 
 function trampolineAsync(x) {
-	trampolineCount++;
-	
-	if(!(x && x.func)){
-		trampolineCount = 0;
-		return;
-	}
+    trampolineCount++;
+    
+    if(!(x && x.func)){
+        trampolineCount = 0;
+        return;
+    }
 
-	x = x.func.apply(null, x.args || []);
-	
-	if(trampolineCount % 500 == 0 )
-		setTimeout(function(){ trampoline2(x) }, 1);
-	else
-		trampoline2(x);
+    x = x.func.apply(null, x.args || []);
+    
+    if(trampolineCount % 500 == 0 )
+        setTimeout(function(){ trampoline2(x) }, 1);
+    else
+        trampoline2(x);
 }
 
 function run(p, strOrState, complete, error, async){
     var input = strOrState instanceof ParseState ? strOrState : ps(strOrState);
-	(async ? trampolineAsync : trampoline) ({func:p, args:[input, {}, function(result){
+    (async ? trampolineAsync : trampoline) ({func:p, args:[input, {}, function(result){
         result.state = input;
         delete result.index;
         delete result.length;
-		if(!result.success){
-			result.error = processError(result.expecting, result.state);
-			error && error(result.error);
-		}else{
-			delete result.error;
-			delete result.expecting;
-		}
-		complete(result);
-	}]});
+        if(!result.success){
+            result.error = processError(result.expecting, result.state);
+            error && error(result.error);
+        }else{
+            delete result.error;
+            delete result.expecting;
+        }
+        complete(result);
+    }]});
 }
 
 function processError(e, s, i, unexp){
-	var index = i === undefined ? s.index : i;
+    var index = i === undefined ? s.index : i;
 
-	if(typeof e == "string"){
-		var lines = s.input.split("\n"),
-			linecount = lines.length,
-			restlc = s.input.substr(index).split("\n").length,
-			line = linecount - restlc + 1,
-			lindex = index - lines.splice(0,line-1).join("\n").length,
+    if(typeof e == "string"){
+        var lines = s.input.split("\n"),
+            linecount = lines.length,
+            restlc = s.input.substr(index).split("\n").length,
+            line = linecount - restlc + 1,
+            lindex = index - lines.splice(0,line-1).join("\n").length,
             unexpMsg = unexp || s.input.substr(index, e.length).substr(0, 6);
-		return 'Unexpected "' + (unexpMsg.length ? unexpMsg : "end of file") +  
-				(unexp ? "" : ('", expecting "' + e)) + 
-				'" at line ' + line + ' char ' + lindex;
-	}
+        return 'Unexpected "' + (unexpMsg.length ? unexpMsg : "end of file") +  
+                (unexp ? "" : ('", expecting "' + e)) + 
+                '" at line ' + line + ' char ' + lindex;
+    }
 
-	if(isArray(e)){
-		var err = map(function(er){ return typeof er == "object" ? er.expecting : er }, e);
-		return processError(err.join('" or "'), s);
-	}else if(typeof e == "object")
-		return processError(e.expecting, s, e.at, e.unexpected);
+    if(isArray(e)){
+        var err = map(function(er){ return typeof er == "object" ? er.expecting : er }, e);
+        return processError(err.join('" or "'), s);
+    }else if(typeof e == "object")
+        return processError(e.expecting, s, e.at, e.unexpected);
 }
 
 var parser_id = 0;
@@ -248,110 +248,115 @@ function Parser(){}
 
 
 function parserBind(p, f){ 
-	return function(state, scope, k){
-		return {func:p, args:[state, scope, function(result){
-			return k(f(result));
-		}]};
-	};
+    return function(state, scope, k){
+        return {func:p, args:[state, scope, function(result){
+            return k(f(result));
+        }]};
+    };
 }
 
 
 var do2 = function(p1, p2){
-	return function(state, scope, k){
-		return { func: p1, args: [state, scope, function(result){
-			return result.success ? p2(state, scope, k) : k(result);
-		}]};
-}};
+    function fn(state, scope, k){
+        return { func: p1, args: [state, scope, function(result){
+            return result.success ? p2(state, scope, k) : k(result);
+        }]};
+    }
+    fn.constructor = Parser;
+    return fn;
+};
 
 var do_ = function(p1, p2, p3 /* ... */){
     var parsers = map(toParser, arguments);
-    return function(state, _scope, k){
-		var scope = {},
-			i = 1,
-			l = parsers.length,
-			result = parsers[0];
-		
-		scope.scope = _scope;
+    function fn(state, _scope, k){
+        var scope = {},
+            i = 1,
+            l = parsers.length,
+            result = parsers[0];
+        
+        scope.scope = _scope;
 
-		for(; i < l; ++i)
-			result = do2(result, parsers[i]);
+        for(; i < l; ++i)
+            result = do2(result, parsers[i]);
 
-		return result(state, scope, k);
-	}
+        return result(state, scope, k);
+    }
+    fn.constructor = Parser;
+    return fn;
 };
 
 
 function bind(name, p){ 
-	if(name == "scope")
-		throw "Can't use 'scope' as an identifier!";
-	return function(state, scope, k){
-		return { func: p, args: [state, scope, function(result){
-			if(result.success)
-				scope[name] = result.ast;
-			return k(result);
-		}]};
-	}
+    if(name == "scope")
+        throw "Can't use 'scope' as an identifier!";
+    return function(state, scope, k){
+        return { func: p, args: [state, scope, function(result){
+            if(result.success)
+                scope[name] = result.ast;
+            return k(result);
+        }]};
+    }
 };
 
 
 function ret(name, more){
-	var args;
-	if(more) 
-		args = slice(arguments);
+    var args;
+    if(more) 
+        args = slice(arguments);
 
-	return function(state, scope, k){
+    return function(state, scope, k){
 
-		return { func: function(){
-			var ast, type = typeof name;
-			//if(args){
-			//	ast =  resolve(resolveBindings(args, scope));
-			//}else 
-			if(type == "string"){
-				if(!(name in scope))
-					throw 'Not in scope: "' + name + '"';
-				ast = scope[name];		
-			}else
-				ast = name(scope);
+        return { func: function(){
+            var ast, type = typeof name;
+            //if(args){
+            //  ast =  resolve(resolveBindings(args, scope));
+            //}else 
+            if(type == "string"){
+                if(!(name in scope))
+                    throw 'Not in scope: "' + name + '"';
+                ast = scope[name];      
+            }else
+                ast = name(scope);
 
-			return k(make_result(ast));
+            return k(make_result(ast));
 
-		}};
-	}
+        }};
+    }
 }
 
 function resolveBindings(arr, scope){
-	return isArray(arr) ?
-		map(function(e){ return (e in scope) ? scope[e] : resolveBindings(e) }, arr)
-		: arr;
+    return isArray(arr) ?
+        map(function(e){ return (e in scope) ? scope[e] : resolveBindings(e) }, arr)
+        : arr;
 }
 
 function withBound(fn){
-	var args = slice(arguments, 1)
-	return function(scope){
-		return fn.apply(null, map(function(e){ return scope[e] }, args));
-	}
+    var args = slice(arguments, 1)
+    return function(scope){
+        return fn.apply(null, map(function(e){ return scope[e] }, args));
+    }
 }
 
 var returnCall = compose(ret, withBound);
 
 function getParserState(state, scope, k){
-	return k(make_result(state.index));
+    return k(make_result(state.index));
 }
 
 function setParserState(id){
-	return function(state, scope, k){
-		state.scrollTo(scope[id]);
-		return k(_EmptyOk);
-	}
+    return function(state, scope, k){
+        state.scrollTo(scope[id]);
+        return k(_EmptyOk);
+    }
 }
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
 //this function does what `pure` and `return` do in Haskell
 function parserReturn(value){
-	return function(state, scope, k){
-		return k(make_result(value));
-	}
+    return function(state, scope, k){
+        return k(make_result(value));
+    }
 }
 
 var return_ = parserReturn;
@@ -362,7 +367,7 @@ var pure = return_;
 //and applies the ast of the first to the ast of the second
 //the ast of the first must be a function
 function ap(a, b){
-	return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
+    return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
 }
 
 // Parser combinator that passes the AST generated from the parser 'p' 
@@ -371,14 +376,14 @@ function ap(a, b){
 var parsecMap = function(f, p){
     f = curry(f);
     return function(state, scope, k){
-		return {func:p, args:[state, scope, function(result){
-				if(!result.success)
-					return k(result);
-				result = extend({}, result);
-				result.ast = f(result.ast);
-				return k(result);
-		}]};
-	};
+        return {func:p, args:[state, scope, function(result){
+                if(!result.success)
+                    return k(result);
+                result = extend({}, result);
+                result.ast = f(result.ast);
+                return k(result);
+        }]};
+    };
 }
 
 var fmap = parsecMap;
@@ -398,33 +403,35 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 var parserPlus = function(p1, p2){
-	return function(state, scope, k){
-		return {func: p1, args:[state, scope, function(result){
-			var errors =  [];
+    function fn(state, scope, k){
+        return {func: p1, args:[state, scope, function(result){
+            var errors =  [];
 
-			function handleError(result){
-				var err = result.expecting;
-				if(err){
-					if(isArray(err))
-						errors = errors.concat(err);
-					else
-						errors.push(err);
-				}
-				if(!result.success)
-					result.expecting = errors;
-				else
-					delete result.expecting;
-			}
-			
-			handleError(result);
-			
-			return (result.ast !== undefined) ? {func:k, args: [result]} :
-				{func: p2, args: [state, scope, function(result){
-					handleError(result);
-					return k(result);
-				}]}
-		}]};
-	}
+            function handleError(result){
+                var err = result.expecting;
+                if(err){
+                    if(isArray(err))
+                        errors = errors.concat(err);
+                    else
+                        errors.push(err);
+                }
+                if(!result.success)
+                    result.expecting = errors;
+                else
+                    delete result.expecting;
+            }
+            
+            handleError(result);
+            
+            return (result.ast !== undefined) ? {func:k, args: [result]} :
+                {func: p2, args: [state, scope, function(result){
+                    handleError(result);
+                    return k(result);
+                }]}
+        }]};
+    }
+    fn.constructor = Parser;
+    return fn;
 }
 
 // 'parserPlus' is a parser combinator that provides a choice between other parsers.
@@ -434,15 +441,15 @@ var parserPlus = function(p1, p2){
 var parserPlusN = function(p1, p2, p3 /* ... */){
     var parsers = map(toParser, arguments);
     return function(state, scope, k){
-		var i = 1,
-			l = parsers.length,
-			result = parsers[0];
-		
-		for(; i < l; ++i)
-			result = parserPlus(result, parsers[i]);
+        var i = 1,
+            l = parsers.length,
+            result = parsers[0];
+        
+        for(; i < l; ++i)
+            result = parserPlus(result, parsers[i]);
 
-		return result(state, scope, k);
-	}
+        return result(state, scope, k);
+    }
 };
 
 var mplus = parserPlus;
@@ -569,18 +576,18 @@ function tokenPrimP1(fn){
 
 
 var try_ = tokenPrimP1(function(_, result, state, startIndex){
-	if(result.success)
-		return result;
-	state.scrollTo(startIndex);
-	return _fail(result.expecting);
+    if(result.success)
+        return result;
+    state.scrollTo(startIndex);
+    return _fail(result.expecting);
 });
 
 
 var skipMany = function(p){
     return tokenPrimP1(function(_, result, state, startIndex){
-		result = extend({}, result);
-		result.ast = undef;
-		return result;
+        result = extend({}, result);
+        result.ast = undef;
+        return result;
     })(many(p), null);
 };
 
@@ -609,14 +616,14 @@ var satisfy = tokenPrim(function(cond, state){
 //string :: String -> Parser
 var string = function(s){ //TODO
     return tokenPrimP1(function(_, result, state, startIndex){
-		result.ast = result.ast.join("");
-		result = extend({}, result);
-		if(!result.success)
+        result.ast = result.ast.join("");
+        result = extend({}, result);
+        if(!result.success)
             result.expecting = {at:startIndex, expecting: s};
-		else delete result.expecting;
-		if(!result.ast.length) //TODO
-			result.ast = undef;
-		return result;
+        else delete result.expecting;
+        if(!result.ast.length) //TODO
+            result.ast = undef;
+        return result;
     })(tokens(map(char_, s)), null);
 };
 
@@ -626,10 +633,10 @@ var string = function(s){ //TODO
 //label :: Parser -> String -> Parser
 var label = tokenPrimP1(function(str, result, state, startIndex){
     if(!result.success){
-		result = extend({}, result);
-		result.expecting = {at: startIndex, expecting: str};
-	}
-	return result;	
+        result = extend({}, result);
+        result.expecting = {at: startIndex, expecting: str};
+    }
+    return result;  
 });
 
 
@@ -638,28 +645,28 @@ var label = tokenPrimP1(function(str, result, state, startIndex){
 
 //match :: StringOrRegex -> Parser
 var match = tokenPrim(function(sr, state){
-		var result;
-		if(typeof sr == "string"){
+        var result;
+        if(typeof sr == "string"){
             if(state.substring(0, sr.length) == sr){
                 state.scroll(sr.length);
                 result = make_result(sr);
             }else
                 result = _fail(sr);
-						
+                        
         }else if(sr.exec){
-			var rx = new RegExp("^" + sr.source);
-			var substr = state.substring(0);
-			var match = rx.exec(substr);
-			match = match && match[0];
-			var length = match && match.length;
-			var matched = substr.substr(0, length);
+            var rx = new RegExp("^" + sr.source);
+            var substr = state.substring(0);
+            var match = rx.exec(substr);
+            match = match && match[0];
+            var length = match && match.length;
+            var matched = substr.substr(0, length);
             if(length){
                 state.scroll(length);
                 result = make_result(matched);
             }else
                 result = _fail(sr.source);
-		}
-		return result;
+        }
+        return result;
 });
 
 
@@ -675,81 +682,81 @@ var match = tokenPrim(function(sr, state){
 
 function sequence(ms){
 
-	function k(m1, m2){
-		return do_(
-			bind("x", m1),
-			bind("xs", m2),
-			ret(withBound(cons, "x", "xs"))
-		);
-	}
+    function k(m1, m2){
+        return do_(
+            bind("x", m1),
+            bind("xs", m2),
+            ret(withBound(cons, "x", "xs"))
+        );
+    }
 
-	return foldr(k, return_([]), ms);
+    return foldr(k, return_([]), ms);
 }
 
 
 
 extend(operators, {
-	"<-" : {
-		func:	bind,
-		fixity: infixr(-1) //this is a special operator, don't use negative fixity anywhere else!
-		//,type:	[String, Parser, Parser]
-	},
-	">>=": {
-		func:	parserBind,
-		fixity: infixl(1)
-		//,type:	[Parser, Function, Parser]
-	},
-	"=<<": {
-		func:	flip(parserBind),
-		fixity: infixr(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	">>" : {
-		func:	skip_fst,
-		fixity: infixl(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"*>" : { //liftA2 (const id)
-		func:	skip_fst,
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<*" : { //liftA2 const
-		func:	skip_snd,
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<$>": {
-		func:	fmap,
-		fixity: infixl(4)
-		//,type:	[Function, Parser, Parser]
-	},
-	"<*>": {
-		func:	ap,
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<**>": { //liftA2 (flip ($))
-		func:	curry(liftA2)(flip(call)),
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-		//the (<$) combinator uses the value on the left 
-		//if the parser on the right succeeds. x <$ p = pure x <* p
-		//from Control.Applicative: (<$>) . const :: Functor f => a -> f b -> f a
-	"<$" : {
-		func:	function(val, parser){ return skip_snd(pure(value), parser) },
-		fixity: infixl(4)
-		//,type:	["*", Parser, Parser]
-	},
-	"<|>": {
-		func:	parserPlus,
-		fixity: infixr(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<?>": {
-		func:	label,
-		fixity: infix(0)
-		//,type:	[Parser, String, Parser]
-	}	
+    "<-" : {
+        func:   bind,
+        fixity: infixr(-1) //this is a special operator, don't use negative fixity anywhere else!
+        //,type:    [String, Parser, Parser]
+    },
+    ">>=": {
+        func:   parserBind,
+        fixity: infixl(1)
+        //,type:    [Parser, Function, Parser]
+    },
+    "=<<": {
+        func:   flip(parserBind),
+        fixity: infixr(1)
+        //,type:    [Parser, Parser, Parser]
+    },
+    ">>" : {
+        func:   skip_fst,
+        fixity: infixl(1)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "*>" : { //liftA2 (const id)
+        func:   skip_fst,
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<*" : { //liftA2 const
+        func:   skip_snd,
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<$>": {
+        func:   fmap,
+        fixity: infixl(4)
+        //,type:    [Function, Parser, Parser]
+    },
+    "<*>": {
+        func:   ap,
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<**>": { //liftA2 (flip ($))
+        func:   curry(liftA2)(flip(call)),
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+        //the (<$) combinator uses the value on the left 
+        //if the parser on the right succeeds. x <$ p = pure x <* p
+        //from Control.Applicative: (<$>) . const :: Functor f => a -> f b -> f a
+    "<$" : {
+        func:   function(val, parser){ return skip_snd(pure(value), parser) },
+        fixity: infixl(4)
+        //,type:    ["*", Parser, Parser]
+    },
+    "<|>": {
+        func:   parserPlus,
+        fixity: infixr(1)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<?>": {
+        func:   label,
+        fixity: infix(0)
+        //,type:    [Parser, String, Parser]
+    }   
 });
