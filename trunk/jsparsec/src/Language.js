@@ -77,9 +77,9 @@ var emptyDef = GenLanguageDef.LanguageDef(record,
 //                , commentLine    = "--"
 //                , nestedComments = True
 //                , identStart     = letter
-//                , identLetter	   = alphaNum <|> oneOf "_'"
-//                , opStart	       = opLetter haskellStyle
-//                , opLetter	   = oneOf ":!#$%&*+./<=>?@\\^|-~"
+//                , identLetter    = alphaNum <|> oneOf "_'"
+//                , opStart        = opLetter haskellStyle
+//                , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~"
 //                , reservedOpNames= []
 //                , reservedNames  = []
 //                , caseSensitive  = True
@@ -106,16 +106,16 @@ var haskellStyle = GenLanguageDef.LanguageDef(record,
 //
 //javaStyle  :: LanguageDef st
 //javaStyle   = emptyDef
-//		{ commentStart	 = "/*"
-//		, commentEnd	 = "*/"
-//		, commentLine	 = "//"
-//		, nestedComments = True
-//		, identStart	 = letter
-//		, identLetter	 = alphaNum <|> oneOf "_'"
-//		, reservedNames  = []
-//		, reservedOpNames= []
+//      { commentStart   = "/*"
+//      , commentEnd     = "*/"
+//      , commentLine    = "//"
+//      , nestedComments = True
+//      , identStart     = letter
+//      , identLetter    = alphaNum <|> oneOf "_'"
+//      , reservedNames  = []
+//      , reservedOpNames= []
 //      , caseSensitive  = False
-//		}
+//      }
 
 var javaStyle = GenLanguageDef.LanguageDef(record,
                { commentStart    : "/*"
@@ -128,7 +128,7 @@ var javaStyle = GenLanguageDef.LanguageDef(record,
                , opLetter        : emptyDefOpLetter
                , reservedOpNames : []
                , reservedNames   : []
-               , caseSensitive   : false //TODO: why?
+               , caseSensitive   : false
                });
 
 //-----------------------------------------------------------
@@ -169,18 +169,18 @@ var haskell98Def = haskellStyle.update(
 //
 //haskellDef  :: LanguageDef st
 //haskellDef   = haskell98Def
-//	        { identLetter	 = identLetter haskell98Def <|> char '#'
-//	        , reservedNames	 = reservedNames haskell98Def ++
-//    				   ["foreign","import","export","primitive"
-//    				   ,"_ccall_","_casm_"
-//    				   ,"forall"
-//    				   ]
+//          { identLetter    = identLetter haskell98Def <|> char '#'
+//          , reservedNames  = reservedNames haskell98Def ++
+//                     ["foreign","import","export","primitive"
+//                     ,"_ccall_","_casm_"
+//                     ,"forall"
+//                     ]
 //                }
 
 var haskellDef = haskell98Def.update(
-	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
-	        , reservedNames : haskell98Def.reservedNames.concat(
-    				              ["foreign","import","export","primitive"
+            { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
+            , reservedNames : haskell98Def.reservedNames.concat(
+                                  ["foreign","import","export","primitive"
                                   ,"_ccall_","_casm_"
                                   ,"forall"
                                   ])
@@ -191,7 +191,7 @@ var haskellDef = haskell98Def.update(
 //haskell :: TokenParser st
 //haskell      = makeTokenParser haskellDef
 
-var haskell = makeTokenParser(haskellDef);
+//var haskell = makeTokenParser(haskellDef);
 
 
 //-----------------------------------------------------------
@@ -202,23 +202,35 @@ var haskell = makeTokenParser(haskellDef);
 //
 //mondrianDef :: LanguageDef st
 //mondrianDef = javaStyle
-//		{ reservedNames = [ "case", "class", "default", "extends"
-//				  , "import", "in", "let", "new", "of", "package"
-//				  ]
+//      { reservedNames = [ "case", "class", "default", "extends"
+//                , "import", "in", "let", "new", "of", "package"
+//                ]
 //                , caseSensitive  = True
-//		}
+//      }
 
 
 var mondrianDef = javaStyle.update(
-		{ reservedNames : [ "case", "class", "default", "extends"
-				          , "import", "in", "let", "new", "of", "package"
-				          ]
+        { reservedNames : [ "case", "class", "default", "extends"
+                          , "import", "in", "let", "new", "of", "package"
+                          ]
         , caseSensitive : true
-		});
+        });
 
 //-- | A lexer for the mondrian language.
 //
 //mondrian :: TokenParser st
 //mondrian    = makeTokenParser mondrianDef
 
-var mondrian = makeTokenParser(mondrianDef);
+//var mondrian = makeTokenParser(mondrianDef);
+
+
+
+extend(JSParsec, {
+    emptyDef    : emptyDef,
+    haskellStyle: haskellStyle,
+    javaStyle   : javaStyle,
+    haskellDef  : haskellDef,
+    mondrianDef : mondrianDef,
+    getHaskell  : function(){ return makeTokenParser(haskellDef)  },
+    getMondrian : function(){ return makeTokenParser(mondrianDef) }
+});

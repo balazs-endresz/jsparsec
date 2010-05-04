@@ -164,3 +164,19 @@ var anyChar = [satisfy, const_(true)].resolve();
 
 // -- defined in Prim
 
+extend(JSParsec, {
+    oneOf    : oneOf,
+    noneOf   : noneOf,
+    space    : space,
+    spaces   : spaces,
+    newline  : newline,
+    tab      : tab,
+    upper    : upper,
+    lower    : lower,
+    alphaNum : alphaNum,
+    letter   : letter,
+    digit    : digit,
+    hexDigit : hexDigit,
+    octDigit : octDigit,
+    anyChar  : anyChar
+});

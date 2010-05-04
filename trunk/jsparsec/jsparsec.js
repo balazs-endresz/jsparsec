@@ -1,7 +1,8 @@
-/*! 
+(function(){
+/** @license
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 0.0.4
+ * Version: 0.0.5
  * 
  * http://code.google.com/p/jsparsec/
  * 
@@ -22,8 +23,8 @@
 // -------------------------------------------------
 
 var undef,
-	_toString = {}.toString,
-	_slice    = [].slice;
+    _toString = {}.toString,
+    _slice    = [].slice;
 
 function curry(fn){
   function ret(){
@@ -39,7 +40,7 @@ function curry(fn){
 var id = function(x){ return x };
 
 //var const_ = curry(function(x, _){ return x });
-function const_(x){ return function(_){ return x } };
+function const_(x){ return function(_){ return x } }
 
 var call = curry(function(a, b){ return a(b) });
 
@@ -51,23 +52,23 @@ function isDefined(x){ return x !== undef }
 
 
 function slice(arr, i1){
-	return _slice.call(arr, i1 || 0);
+    return _slice.call(arr, i1 || 0);
 }
 
 function foldl(f, initial, arr) {
     for(var i = 0, l = arr.length; i < l; ++i) 
-		initial = f(initial, arr[i]);
+        initial = f(initial, arr[i]);
     return initial;
 }
 
 function foldr(f, initial, arr) {
     for(var l = arr.length - 1; l > -1 ; --l) 
-		initial = f(arr[l], initial);
+        initial = f(arr[l], initial);
     return initial;
 }
 
 function map(f, arr){
-	var res = [], i = 0, l = arr.length;
+    var res = [], i = 0, l = arr.length;
     for (; i < l; ++i)
         res[i] = f(arr[i], i);
     return res;
@@ -75,18 +76,18 @@ function map(f, arr){
 
 
 function filter(arr, f) {
-	var res = [], i = 0, l = arr.length;
-	for(; i < l; ++i)
-		if(f(arr[i]))
-			res.push(arr[i]);
-	return res;
+    var res = [], i = 0, l = arr.length;
+    for(; i < l; ++i)
+        if(f(arr[i]))
+            res.push(arr[i]);
+    return res;
 }
 
 function indexOf(arr, value) {
     var length = arr.length;   
-  	if (!length)
-		return -1;
-	
+    if (!length)
+        return -1;
+    
     for (var from = 0; from < length; from++)  
       if (arr[from] === value)  
         return from;  
@@ -95,9 +96,9 @@ function indexOf(arr, value) {
 }
 
 function lastIndexOf(arr, value) {
-	var length = arr.length;
-	if (!length)
-		return -1;
+    var length = arr.length;
+    if (!length)
+        return -1;
 
     for (var from = length - 1; from > -1; --from)
       if (arr[from] === value)
@@ -113,20 +114,20 @@ function lastIndexOf(arr, value) {
 //zip (a:as) (b:bs) = (a,b) : zip as bs
 //zip _      _      = []
 function zip(arr1, arr2){
-	var res = [], i = 0, l = Math.min(arr1.length, arr2.length);
+    var res = [], i = 0, l = Math.min(arr1.length, arr2.length);
     for (; i < l; ++i)
         res[i] = [arr1[i], arr2[i]];
     return res;
 }
 
 function sort(arr) {
-	var type = typeof arr;
+    var type = typeof arr;
 
-	if(type == "object")
-		return arr.sort();
+    if(type == "object")
+        return arr.sort();
 
-	if(type == "string")
-		return slice(arr).sort().join("");
+    if(type == "string")
+        return slice(arr).sort().join("");
 }
 
 //-- | The 'nub' function removes duplicate elements from a list.
@@ -148,14 +149,14 @@ function sort(arr) {
 //#endif
 
 function nub(arr, ls){
-	ls = ls === undef ? [] : ls;
-	
-	var x  = arr[0],
-		xs = slice(arr, 1);
-	
-	return !arr.length ? [] :
-			elem(x, ls) ? nub(xs, ls) : 
-			cons(x, nub(xs, cons(x,ls)) );
+    ls = ls === undef ? [] : ls;
+    
+    var x  = arr[0],
+        xs = slice(arr, 1);
+    
+    return !arr.length ? [] :
+            elem(x, ls) ? nub(xs, ls) : 
+            cons(x, nub(xs, cons(x,ls)) );
 }
 
 
@@ -168,10 +169,10 @@ function nub(arr, ls){
 //maybe _ f (Just x) = f x
 
 function maybe(n, f, m){
-	if(m.Nothing)
-		return n;
-	if(m.Just)
-		return f(m[0]);
+    if(m.Nothing)
+        return n;
+    if(m.Just)
+        return f(m[0]);
 }
 
 //  compare x y = if x == y then EQ
@@ -182,32 +183,32 @@ function maybe(n, f, m){
 //                  else GT
 
 function compare(x, y){
-	return x === y ? Ordering.EQ : 
-		   x <=  y ? Ordering.LT :
-		             Ordering.GT
+    return x === y ? Ordering.EQ : 
+           x <=  y ? Ordering.LT :
+                     Ordering.GT;
 }
 
 
 function extend(a, b){
-	for(var key in b)
-		a[key] = b[key];
-	return a;
+    for(var key in b)
+        a[key] = b[key];
+    return a;
 }
 
 function compose(fst, snd){
-	return function(){
-		return fst(snd.apply(null, arguments));
-	};
+    return function(){
+        return fst(snd.apply(null, arguments));
+    };
 }
 
 //this is the same as (.) in Haskell:
 //the inner function receives only the first argument
 function compose1(fst, snd){
-	return function(a, b, c){ 
-		var args = slice(arguments, 1);
-		args.unshift(snd(a));
-		return fst.apply(null, args);
-	};
+    return function(a, b, c){ 
+        var args = slice(arguments, 1);
+        args.unshift(snd(a));
+        return fst.apply(null, args);
+    };
 }
 
 function flip(fn) {
@@ -215,73 +216,73 @@ function flip(fn) {
 }
 
 function cons(x, xs){
-	if(typeof x == "string" && typeof xs == "string")
-		return x+xs;
-	
-	return [x].concat(xs);
+    if(typeof x == "string" && typeof xs == "string")
+        return x+xs;
+    
+    return [x].concat(xs);
 }
 
 
 function consJoin(x, xs){
-	if(typeof x == "string" && typeof xs == "string")
-		return x+xs;
-	
-	return x + xs.join("");
+    if(typeof x == "string" && typeof xs == "string")
+        return x+xs;
+    
+    return x + xs.join("");
 }
 
 
 function replicate(n, x){
-	for (var ret = [], i = 0; i < n; ++i)
-		ret[i] = x;
-	return ret;
+    for (var ret = [], i = 0; i < n; ++i)
+        ret[i] = x;
+    return ret;
 }
 
 
 function negate(a){
-	return -a;
-};
+    return -a;
+}
 
 //returns True if a list is empty, otherwise False
 function null_(a){
-	return !a.length;
-};
+    return !a.length;
+}
 
 
 function elem(x, xs){
-	return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
+    return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1;
 }
 
 function isSpace(c){
-	return /^\s$/.test(c);
+    return /^\s$/.test(c);
 }
 function isUpper(c){
-	return c.toUpperCase() == c;
+    return c.toUpperCase() == c;
 }
 function isLower(c){
-	return c.toLowerCase() == c;
+    return c.toLowerCase() == c;
 }
 function isAlphaNum(c){
-	return /^\w$/.test(c);
+    return /^\w$/.test(c);
 }
 function isAlpha(c){
-	return /^\w$/.test(c) && /^\D$/.test(c);
+    return /^\w$/.test(c) && /^\D$/.test(c);
 }
 function isDigit(c){
-	return /^\d$/.test(c);
+    return /^\d$/.test(c);
 }
 function isHexDigit(c){
-	return /^[0-9A-Fa-f]$/.test(c);
+    return /^[0-9A-Fa-f]$/.test(c);
 }
 function isOctDigit(c){
-	return /^[0-7]$/.test(c);
+    return /^[0-7]$/.test(c);
 }
 
 
 function digitToInt(c){
-	if(!isHexDigit(c))
-		throw "Data.Char.digitToInt: not a digit " + c;
+    if(!isHexDigit(c))
+        throw "Data.Char.digitToInt: not a digit " + c;
 
-	return parseInt(c, 16);
+    return parseInt(c, 16);
 }
 
 
@@ -291,12 +292,81 @@ var fromInteger = id; //TODO
 
 var fromIntegral = id; //TODO
 
+function range(lower, upper){
+    return {
+        indexOf: function(ch){ return (ch >= lower && ch <= upper) ? true : -1 },
+        toString: function(){ return "range(" + lower + ", " + upper + ")" }
+    };
+}
+
+function namespace(){
+    var o, d;
+    map(function(v) {
+        d = v.split(".");
+        o = window[d[0]] = window[d[0]] || {};
+        map(function(v2){
+            o = o[v2] = o[v2] || {};
+        }, d.slice(1));
+    }, arguments);
+    return o;
+}
+
+var JSParsec = window.JSParsec = {};
+
+extend(JSParsec, {
+    curry       : curry,
+    const_      : const_,
+    "const"     : const_,
+    isArray     : isArray,
+    isDefined   : isDefined,
+    slice       : slice,
+    foldl       : foldl,
+    foldr       : foldr,
+    map         : map,
+    filter      : filter,
+    indexOf     : indexOf,
+    lastIndexOf : lastIndexOf,
+    zip         : zip,
+    sort        : sort,
+    nub         : nub,
+    maybe       : maybe,
+    compare     : compare,
+    compose     : compose,
+    compose1    : compose1,
+    call        : call,
+    id          : id,
+    flip        : flip,
+    cons        : cons,
+    consJoin    : consJoin,
+    replicate   : replicate,
+    negate      : negate,
+    null_       : null_,
+    "null"      : null_,
+    elem        : elem,
+    isSpace     : isSpace,
+    isUpper     : isUpper,
+    isLower     : isLower,
+    isAlpha     : isAlpha,
+    isAlphaNum  : isAlphaNum,
+    isDigit     : isDigit,
+    isHexDigit  : isHexDigit,
+    isOctDigit  : isOctDigit,
+    digitToInt  : digitToInt,
+    range       : range,
+    extend      : extend,
+    namespace   : namespace,
+    toInteger   : toInteger,
+    fromInteger : fromInteger,
+    fromIntegral: fromIntegral
+});
+
 // -------------------------------------------------
 // Algebraic Data Types
 // -------------------------------------------------
 
+
 function Record(){}
-var record = new Record;
+var record = new Record();
 
 
 //this is used for simulating the record syntax
@@ -304,16 +374,16 @@ var record = new Record;
 //beacause it assumes that the keys of objects are iterated in the order they were defined
 //but that is not part of the ECMAScript standard
 function getNthKey(obj, nth) {
-	if(!/^[0-9]$/.test(nth))
-		return nth;
-	if(typeof obj != "object")
-		return nth;
+    if(!/^[0-9]$/.test(nth))
+        return nth;
+    if(typeof obj != "object")
+        return nth;
     var i = 0;
     for (var key in obj){
-		if (obj.hasOwnProperty(key) && i == nth)  
-			return key;  
-		i++
-	}
+        if (obj.hasOwnProperty(key) && i == nth)  
+            return key;  
+        i++;
+    }
     return -1;  
 }
 
@@ -321,24 +391,24 @@ function getNthKey(obj, nth) {
 function ADT(){}
 
 function adtToString(type){
-	return function(){
-		var acc=[], rec = this._recordset;
-		if(!isArray(rec)){
-			for(var name in rec){
-				var item = (type ? (rec[name].name || rec[name]) : this[name]);
-				if(!type && (item instanceof Function))
-					item = item.constructor != Function ? item.constructor.name : "Function(" + item.name + ")";
-				acc.push(name + " :: " + item );
-			}
-			var indent = replicate(this._dataConstructor.length + 2," ").join("");
-			acc = "{" + acc.join("\n" + indent + ",") + "\n" + indent +"}";
-		}else{
-			for(var i = 0; i in this; i++)
-			acc.push(type ? (rec[i].name || rec[i]) : this[i]);
-			acc = acc.join(" ");
-		}
-		return  this._dataConstructor + " " + acc;
-	}
+    return function(){
+        var acc=[], rec = this._recordset;
+        if(!isArray(rec)){
+            for(var name in rec){
+                var item = (type ? (rec[name].name || rec[name]) : this[name]);
+                if(!type && (item instanceof Function))
+                    item = item.constructor != Function ? item.constructor.name : "Function(" + item.name + ")";
+                acc.push(name + " :: " + item );
+            }
+            var indent = replicate(this._dataConstructor.length + 2," ").join("");
+            acc = "{" + acc.join("\n" + indent + ",") + "\n" + indent +"}";
+        }else{
+            for(var i = 0; i in this; i++)
+            acc.push(type ? (rec[i].name || rec[i]) : this[i]);
+            acc = acc.join(" ");
+        }
+        return  this._dataConstructor + " " + acc;
+    };
 }
 
 ADT.prototype.toString = adtToString();
@@ -347,72 +417,74 @@ ADT.prototype.dataConstructorToString = adtToString(true);
 
 
 function data(type, constr){
-	if(type.constructors)
-		throw "Type constructor has been already defined: '" + type.name + "'";
-	type.constructors = constr;
+    if(type.constructors)
+        throw "Type constructor has been already defined: '" + type.name + "'";
+    type.constructors = constr;
 
-	type.prototype = new ADT;
+    type.prototype = new ADT();
 
-	for(var i = 0, l = constr.length; i < l; ++i){
-		var single = typeof constr[i] != "object",
-			name =  single  ? constr[i] : constr[i][0];
-		if(name in {})
-			throw "The name of the data constructor can't be a property of Object.prototype as well!";
+    for(var i = 0, l = constr.length; i < l; ++i){
+        var single = typeof constr[i] != "object",
+            name =  single  ? constr[i] : constr[i][0];
+        if(name in {})
+            throw "The name of the data constructor can't be a property of Object.prototype as well!";
 
-		type[name] = single ? value(name)() : value(name, slice(constr[i], 1));
-		if(!single)
-			type[name]._length = slice(constr[i], 1).length
-	}
+        type[name] = single ? value(name)() : value(name, slice(constr[i], 1));
+        if(!single)
+            type[name]._length = slice(constr[i], 1).length;
+    }
 
-	function value(constr, fields){
-		var recordDef = fields && typeof fields[0] == "object";
-		function create(_isrecord, rec){
-			var isrecord = (_isrecord instanceof Record),
-				args = isrecord ? rec : slice(arguments),
-				that = new type,
-				i = 0;
-			
-			that.constructor = type;
-			that._recordset = (recordDef && fields[0]) || fields;
-			that._dataConstructor = constr;
+    function value(constr, fields){
+        var recordDef = fields && typeof fields[0] == "object";
+        function create(_isrecord, rec){
+            var isrecord = (_isrecord instanceof Record),
+                args = isrecord ? rec : slice(arguments),
+                that = new type(),
+                i = 0;
+            
+            that.constructor = type;
+            that._recordset = (recordDef && fields[0]) || fields;
+            that._dataConstructor = constr;
 
-			that.update = function(newRecords){
-				var obj = {};
-				for(var n in fields[0]){
-					obj[n] = this[n]
-					if(n in newRecords)
-						obj[n] = newRecords[n];
-				}
-				return create(record, obj);
-			};
+            that.update = function(newRecords){
+                var obj = {};
+                for(var n in fields[0]){
+                    obj[n] = this[n];
+                    if(n in newRecords)
+                        obj[n] = newRecords[n];
+                }
+                return create(record, obj);
+            };
 
-			that[constr] = true;
+            that[constr] = true;
 
-			if(args !== undef)
-				for(var name in args)
-					if(args.hasOwnProperty(name) && name != constr){
+            if(args !== undef)
+                for(var name in args)
+                    if(args.hasOwnProperty(name) && name != constr){
 
-						if(isrecord && fields && recordDef)
-							if( !(name in fields[0]))
-								throw "The accessor '" + name + "' is not defined for the data constructor '" + constr + "'";
+                        if(isrecord && fields && recordDef)
+                            if( !(name in fields[0]))
+                                throw "The accessor '" + name + "' is not defined for the data constructor '" + constr + "'";
 
-						var recName = getNthKey(fields[0], name);
-						var arg = (args[i] !== undefined) ? args[i] : args[recName];
+                        var recName = getNthKey(fields[0], name);
+                        var arg = (args[i] !== undefined) ? args[i] : args[recName];
 
-						var check = recordDef ? fields[0][recName] : fields[i];
-						if(check.name && !((check == arg.constructor) || (arg instanceof check) ))
-							throw "Type mismatch: expecting '" + check.name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
+                        var check = recordDef ? fields[0][recName] : fields[i];
+                        if(check.name && !((check == arg.constructor) || (arg instanceof check) ))
+                            throw "Type error: expecting '" + check.name + "' instead of '" + arg.constructor.name +
+                                    "' in the argument '" + (recName || i) + "' of the data constructor '" +
+                                    constr + "' of type '" + type.name + "'";
 
-						that[recName] = that[i] = that[name] = args[name];
-						i++;
+                        that[recName] = that[i] = that[name] = args[name];
+                        i++;
 
-					}else if(name == constr)
-						throw "Accessor has the same name as the data constructor: '" + constr + "'";
+                    }else if(name == constr)
+                        throw "Accessor has the same name as the data constructor: '" + constr + "'";
 
-			return that;
-		}
-		return create;
-	}
+            return that;
+        }
+        return create;
+    }
 }
 
 //currently type variables on the lhs cannot be declared, and they are not checked at all:
@@ -439,17 +511,17 @@ function data(type, constr){
 function Type(){}
 
 data(Type, [["Constr1", Number, "a"]
-			,"Constr2"
-			,["Constr3", {acc: Number}]
-			,["Constr4", Number]
-			]);
+            ,"Constr2"
+            ,["Constr3", {acc: Number}]
+            ,["Constr4", Number]
+            ]);
 
 //in Haskell:
 data Number = ... -- javascript number type
 data Type a = Constr1 Number a
-			| Constr2
-			| Constr3 {acc :: Number}
-			| Constr4 Number
+            | Constr2
+            | Constr3 {acc :: Number}
+            | Constr4 Number
 */
 
 //Type.Constr3(record, {acc:1}).Constr3 == true
@@ -471,10 +543,10 @@ function Maybe(){}
 data(Maybe, [["Just", "a"], "Nothing"]);
 
 function Ordering(){}
-data(Ordering, ["LT", "EQ", "GT"])
+data(Ordering, ["LT", "EQ", "GT"]);
 
 function Either(){}
-data(Either, [["Left", "a"], ["Right", "b"]])
+data(Either, [["Left", "a"], ["Right", "b"]]);
 
 // -------------------------------------------------
 // Operators
@@ -485,58 +557,58 @@ function infixr(strength){ return ["r", strength] }
 function infix (strength){ return ["x", strength] }
 
 function getFixity(opstr){
-	if(!opstr)
-		return;
-	if(opstr._String)
-		return;
-	var op = operators[opstr];
-	if(opstr._Op && !op)
-		return ["l", 9];
+    if(!opstr)
+        return;
+    if(opstr._String)
+        return;
+    var op = operators[opstr];
+    if(opstr._Op && !op)
+        return ["l", 9];
 
-	return op && op.fixity;
+    return op && op.fixity;
 }
 
 function getFixityDir(opstr){
-	if(!opstr)
-		return;
-	if(opstr._String)
-		return;
-	var op = operators[opstr];
-	if(opstr._Op && !op)
-		return "l";
+    if(!opstr)
+        return;
+    if(opstr._String)
+        return;
+    var op = operators[opstr];
+    if(opstr._Op && !op)
+        return "l";
 
-	return op && (op.fixity[0] || "l" );
+    return op && (op.fixity[0] || "l" );
 }
 
 function getFixityStrn(opstr){
-	if(!opstr)
-		return;
-	if(opstr._String)
-		return;
-	var op = operators[opstr];
-	if(opstr._Op && !op)
-		return 9;
+    if(!opstr)
+        return;
+    if(opstr._String)
+        return;
+    var op = operators[opstr];
+    if(opstr._Op && !op)
+        return 9;
 
-	return op && (isDefined(op.fixity[1]) ? op.fixity[1] : 9);
+    return op && (isDefined(op.fixity[1]) ? op.fixity[1] : 9);
 }
 
 
 var operators = {
-	"$" : {
-		func:	call,
-		fixity: infixr(0)
-		//,type:	[Function, "*", "*"]
-	},
-	"." : {
-		func:	compose1,
-		fixity: infixr(9)
-		//,type:	[Function, Function, Function]
-	},
-	":" : {
-		func:	cons,
-		fixity: infixr(5)
-	}
-	
+    "$" : {
+        func:   call,
+        fixity: infixr(0)
+        //,type:    [Function, "*", "*"]
+    },
+    "." : {
+        func:   compose1,
+        fixity: infixr(9)
+        //,type:    [Function, Function, Function]
+    },
+    ":" : {
+        func:   cons,
+        fixity: infixr(5)
+    }
+    
 };
 
 
@@ -549,16 +621,16 @@ var operators = {
 // -- see usage in Char
 
 function splice_args(args, i, rec){
-	var op;
-	if(args[i]._Op){
-		delete args[i]._Op;
-		op = args[i];
-	}else
-		op = operators[args[i]].func
-	
-	var	item = op(args[i-1], args[i+1]);
-	args.splice(i-1, 3 , item);
-	return resolve(args, rec);
+    var op;
+    if(args[i]._Op){
+        delete args[i]._Op;
+        op = args[i];
+    }else
+        op = operators[args[i]].func;
+    
+    var item = op(args[i-1], args[i+1]);
+    args.splice(i-1, 3 , item);
+    return resolve(args, rec);
 }
 
 //in array-expressions if the square brackets are 
@@ -579,9 +651,9 @@ function splice_args(args, i, rec){
 function arr(a){ a._Array = true; return a;}
 
 function str(s){ 
-	var str = new String(s);
-	str._String = true;
-	return str;
+    var string = new String(s);
+    string._String = true;
+    return string;
 }
 
 function op(fn){ fn._Op = true; return fn;}
@@ -589,62 +661,62 @@ function op(fn){ fn._Op = true; return fn;}
 
 //TODO: reject multiple infix operators in the same expression
 function resolve(args, rec){
-	//recurse on nested array-expressions or callstreams
-	args = map(function(e){ 
-		if(e && e._Array){
-			delete e._Array;
-			return e;
-		}
-		return isArray(e) ? resolve(e, rec) :
-				(e && e.CallStream) ? e.resolve() : e;
-	}, args);
-	
-	//inject recursive calls
-	if(rec)
-		args = map(function(e){return e instanceof Recurse ? rec : e}, args);
-	
-	//execute functions between operators
-	var fna = [], fn, newfna = [], i = 0, l = args.length;
-	for(; i < l; ++i){
-		var e = args[i], isOp = false;
-		
-		if(operators[e])
-			isOp = true;
-		if(e && e._String){
-			isOp = false;
-			e = e.toString();
-		}
-		if(e && e._Op)
-			isOp = true;
+    //recurse on nested array-expressions or callstreams
+    args = map(function(e){ 
+        if(e && e._Array){
+            delete e._Array;
+            return e;
+        }
+        return isArray(e) ? resolve(e, rec) :
+                (e && e.CallStream) ? e.resolve() : e;
+    }, args);
+    
+    //inject recursive calls
+    if(rec)
+        args = map(function(e){return e instanceof Recurse ? rec : e}, args);
+    
+    //execute functions between operators
+    var fna = [], fn, newfna = [], i = 0, l = args.length;
+    for(; i < l; ++i){
+        var e = args[i], isOp = false;
+        
+        if(operators[e])
+            isOp = true;
+        if(e && e._String){
+            isOp = false;
+            e = e.toString();
+        }
+        if(e && e._Op)
+            isOp = true;
 
-		if(!isOp && i != (l-1))
-			fna.push(e);
-		else{
-			if(i == (l-1))
-				fna.push(e);
-			if(fna.length> 1)
-				fn = fna[0].apply(null, fna.slice(1));
-			else
-				fn = fna[0];
-			newfna.push(fn);
-			if(i != l-1)
-				newfna.push(e);
-			fna = [];
-		}
-	}
-	args = newfna;
+        if(!isOp && i != (l-1))
+            fna.push(e);
+        else{
+            if(i == (l-1))
+                fna.push(e);
+            if(fna.length> 1)
+                fn = fna[0].apply(null, fna.slice(1));
+            else
+                fn = fna[0];
+            newfna.push(fn);
+            if(i != l-1)
+                newfna.push(e);
+            fna = [];
+        }
+    }
+    args = newfna;
 
-	//execute operators
-	var	dir    = map(getFixityDir , args),
-		strn   = map(getFixityStrn, args),
-		max    = filter(strn, isDefined).sort().pop(),
-		maxfst = indexOf(strn, max),
-		maxlst = lastIndexOf(strn, max);
-	
-	return  dir[maxfst] == "l" ? splice_args(args, maxfst, rec) :
-			dir[maxlst] == "r" ? splice_args(args, maxlst, rec) :
-			dir[maxfst] == "x" ? splice_args(args, maxfst, rec) :
-			args[0];
+    //execute operators
+    var dir    = map(getFixityDir , args),
+        strn   = map(getFixityStrn, args),
+        max    = filter(strn, isDefined).sort().pop(),
+        maxfst = indexOf(strn, max),
+        maxlst = lastIndexOf(strn, max);
+    
+    return  dir[maxfst] == "l" ? splice_args(args, maxfst, rec) :
+            dir[maxlst] == "r" ? splice_args(args, maxlst, rec) :
+            dir[maxfst] == "x" ? splice_args(args, maxfst, rec) :
+            args[0];
 }
 
 Array.prototype.resolve = function(){ return resolve(this) };
@@ -660,35 +732,52 @@ var recurse = new Recurse();
 
 function cs(){
 
-	function rec(s){return p(s)}
+    function rec(state, scope, k){ return p(state, scope, k) }
 
-	var lines = [], p, resolved;
+    var lines = [], p, resolved;
 
-	lines.push(resolve(arguments, rec));
+    lines.push(resolve(arguments, rec));
 
-	function line(s){
-		if(s instanceof ParseState)
-			return (resolved ? p : line.resolve())(s);
-			
-		lines.push(resolve(arguments, rec));
-		return line;
-	}
+    function line(state, scope, k){
+        if(state instanceof ParseState)
+            return (resolved ? p : line.resolve())(state, scope, k);
+            
+        lines.push(resolve(arguments, rec));
+        return line;
+    }
 
-	line.resolve = function(){
-		if(resolved)
-			return p;
-		p = do_.apply(null, lines);
-		lines = null;
-		resolved = true;
-		return p;
-	}
+    line.resolve = function(){
+        if(resolved)
+            return p;
+        p = do_.apply(null, lines);
+        lines = null;
+        resolved = true;
+        return p;
+    };
 
-	line.CallStream = true;
+    line.CallStream = true;
 
-	return line;
+    return line;
 }
 
-
+extend(JSParsec, {
+    data      : data,
+    ADT       : ADT,
+    Maybe     : Maybe,
+    Ordering  : Ordering,
+    Either    : Either,
+    operators : operators,
+    infix     : infix,
+    infixl    : infixl,
+    infixr    : infixr,
+    arr       : arr,
+    op        : op,
+    str       : str,
+    resolve   : resolve,
+    recurse   : recurse,
+    Recurse   : Recurse,
+    cs        : cs
+});
 
 // -------------------------------------------------
 // ParseState
@@ -698,101 +787,101 @@ function ParseState(input, index) {
     this.input  = input;
     this.index  = index || 0;
     this.length = input.length - this.index;
-    this.cache  = { };
+    this.cache  = {};
     return this;
 }
 
 ParseState.prototype = {
 
-	memoize: false,
+    memoize: false,
 
-	scrollTo: function(index) {
-		this.index  = index;
-		this.length = this.input.length - index;
-		return this;
-	},
+    scrollTo: function(index) {
+        this.index  = index;
+        this.length = this.input.length - index;
+        return this;
+    },
 
-	scroll: function(index) {
-		this.index  += index;
-		this.length -= index;
-		return this;
-	},
-
-
-	at: function(index){
-		return this.input.charAt(this.index + index);
-	},
-
-	substring: function(start, end){
-		return this.input.substring(
-			start + this.index,
-			(end || this.length) + this.index);
-	},
-
-	substr: function(start, length){
-		return this.input.substring(
-			start + this.index,
-			length || this.length);
-	},
-
-	toString: function(){
-		var substr = this.substring(0);
-		return 'PS at ' + this.index + ' ' + 
-			(substr.length ? '"' + substr + '"' : "Empty"); 
-	},
-
-	getCached: function(pid) {
-		if(!this.memoize)
-			return;
-
-		var p = this.cache[pid];
-		if(!p)
-			return;
-
-		var result = p[this.index];
-
-		if(!result)
-			return;
-
-		//result.remaining === this
-		this.index  = result.index;
-		this.length = result.length;
-
-		return result;
-	},
-
-	putCached: function(pid, cached) {
-		if(!this.memoize)
-			return false;
-		
-		//cached.remaining === this
-		cached.index  = this.index;
-		cached.length = this.length;
+    scroll: function(index) {
+        this.index  += index;
+        this.length -= index;
+        return this;
+    },
 
 
-		var p = this.cache[pid];
-		if(!p)
-			p = this.cache[pid] = { };
+    at: function(index){
+        return this.input.charAt(this.index + index);
+    },
 
-		p[this.index - cached.matched.length] = cached;
-	}
+    substring: function(start, end){
+        return this.input.substring(
+            start + this.index,
+            (end || this.length) + this.index);
+    },
 
-	/*
+    substr: function(start, length){
+        return this.input.substring(
+            start + this.index,
+            length || this.length);
+    },
 
-	//returns a new state object
-	,from: function(index) {
-		var r = new ParseState(this.input, this.index + index);
-		r.cache  = this.cache;
-		r.length = this.length - index;
-		return r;
-	}
+    toString: function(){
+        var substr = this.substring(0);
+        return 'PS at ' + this.index + ' ' + 
+            (substr.length ? '"' + substr + '"' : "Empty"); 
+    },
 
-	,skipWhitespace: function(){
-		var m = this.substring(0).match(/^\s+/);
-		return m ? this.scroll(m[0].length) : this;
-	}
+    getCached: function(pid) {
+        if(!this.memoize)
+            return;
 
-	*/
+        var p = this.cache[pid];
+        if(!p)
+            return;
+
+        var result = p[this.index];
+
+        if(!result)
+            return;
+
+        //result.remaining === this
+        this.index  = result.index;
+        this.length = result.length;
+
+        return result;
+    },
+
+    putCached: function(pid, index, cached) {
+        if(!this.memoize)
+            return false;
+        
+        //cached.remaining === this
+        cached.index  = this.index;
+        cached.length = this.length;
+
+
+        var p = this.cache[pid];
+        if(!p)
+            p = this.cache[pid] = {};
+
+        p[index] = cached;
+    }
+
+    /*
+
+    //returns a new state object
+    ,from: function(index) {
+        var r = new ParseState(this.input, this.index + index);
+        r.cache  = this.cache;
+        r.length = this.length - index;
+        return r;
+    }
+
+    ,skipWhitespace: function(){
+        var m = this.substring(0).match(/^\s+/);
+        return m ? this.scroll(m[0].length) : this;
+    }
+
+    */
 };
 
 function ps(str) {
@@ -819,35 +908,39 @@ function ps(str) {
 //                It might be an array of these values, which represents a choice.
 
 
-function make_result(remaining, matched, ast, success, expecting){
-	success = success === undef ? true : success;
-	return { remaining: remaining, matched: matched, ast: ast, 
-				success: success, expecting: expecting };
+function make_result(ast, success, expecting){
+    return  {ast: ast
+            ,success: success === undef ? true : success
+            ,expecting: expecting
+            };
 }
 
-var EmptyOk = function(state){
-	return make_result(state, "", undef);
-}
+var _EmptyOk = make_result(undef);
 
-function _fail(state, expecting){
-	return make_result(state, "", undef, false, expecting);
+
+function _fail(expecting){
+    return make_result(undef, false, expecting);
 }
 
 
 //accepts an identifier string, see usage with notFollowedBy
-function unexpected(name){ return function(state, scope){
-	return make_result(state, "", null, false, {unexpected: scope[name]});
-}}
+function unexpected(name){
+    return function(state, scope, k){
+        return k(make_result(null, false, {unexpected: scope[name]}));
+    };
+}
 
-function parserFail(msg){ return function(state){
-	return make_result(state, "", undef, false, msg);
-}};
+function parserFail(msg){
+    return function(state, scope, k){
+        return k(make_result(undef, false, msg));
+    };
+};
 
 var fail = parserFail;
 
 
-function parserZero(state){
-	return make_result(state, "", undef, false);
+function parserZero(state, scope, k){
+    return k(make_result(undef, false));
 }
 
 var mzero = parserZero;
@@ -864,179 +957,188 @@ var empty = mzero;
 // and perform other implicit parser conversions.
 function toParser(p){
     return (typeof p == "string") ? string(p) : 
-		isArray(p) ? resolve(p) : p;
+        isArray(p) ? resolve(p) : p;
 }
 
-function run(p, strOrState, cb){
-		var result = toParser(p.length ? p : p())
-			(strOrState instanceof ParseState ? strOrState : ps(strOrState));
-		if(!result.success){
-			result.error = processError(result.expecting, result.remaining);
-			cb && cb(result.error);
-		}else{
-			delete result.error;
-			delete result.expecting;
-		}
-		return result;
+
+function trampoline(x){
+    while(x && x.func)
+        x = x.func.apply(null, x.args || []);
+}
+
+
+function trampolineAsync(x, count){ //TODO: use while
+    count = count || 0 ;
+    count++;
+    
+    if(!(x && x.func)){
+        count = 0;
+        return;
+    }
+
+    x = x.func.apply(null, x.args || []);
+    
+    if(count % 500 == 0 )
+        setTimeout(function(){ trampoline2(x, count) }, 1);
+    else
+        trampoline2(x, count);
+}
+
+function run(p, strOrState, complete, error, async){
+    var input = strOrState instanceof ParseState ? strOrState : ps(strOrState);
+    (async ? trampolineAsync : trampoline) ({func:p, args:[input, {}, function(result){
+        result.state = input;
+        delete result.index;
+        delete result.length;
+        if(!result.success){
+            result.error = processError(result.expecting, result.state);
+            error && error(result.error);
+        }else{
+            delete result.error;
+            delete result.expecting;
+        }
+        complete(result);
+    }]});
 }
 
 function processError(e, s, i, unexp){
-	var index = i === undefined ? s.index : i;
+    var index = i === undefined ? s.index : i;
 
-	if(typeof e == "string"){
-		var lines = s.input.split("\n"),
-			linecount = lines.length,
-			restlc = s.input.substr(index).split("\n").length,
-			line = linecount - restlc + 1,
-			lindex = index - lines.splice(0,line-1).join("\n").length;
-		return 'Unexpected "' + (unexp || s.input.substr(index, e.length).substr(0, 6)) +  
-				(unexp ? "" : ('", expecting "' + e)) + 
-				'" at line ' + line + ' char ' + lindex;
-	}
+    if(typeof e == "string"){
+        var lines = s.input.split("\n"),
+            linecount = lines.length,
+            restlc = s.input.substr(index).split("\n").length,
+            line = linecount - restlc + 1,
+            lindex = index - lines.splice(0,line-1).join("\n").length,
+            unexpMsg = unexp || s.input.substr(index, e.length).substr(0, 6);
+        return 'Unexpected "' + (unexpMsg.length ? unexpMsg : "end of file") +  
+                (unexp ? "" : ('", expecting "' + e)) + 
+                '" at line ' + line + ' char ' + lindex;
+    }
 
-	if(isArray(e)){
-		var err = map(function(er){ return typeof er == "object" ? er.expecting : er }, e);
-		return processError(err.join('" or "'), s);
-	}else if(typeof e == "object")
-		return processError(e.expecting, s, e.at, e.unexpected);
+    if(isArray(e)){
+        var err = map(function(er){ return typeof er == "object" ? er.expecting : er }, e);
+        return processError(err.join('" or "'), s);
+    }else if(typeof e == "object")
+        return processError(e.expecting, s, e.at, e.unexpected);
 }
 
 var parser_id = 0;
 
 function Parser(){}
 
-function _make(fn, show, p1, p2, pN, action){
-	return function(p, opt1){
-		var pid = parser_id++;
-		p = pN ? map(toParser, arguments) : p;
-		p = p1 ? toParser(p) : p;
-		opt1 = p2 ? toParser(opt1) : opt1;
-		p = action ? curry(p) : p;
 
-		var ret = function(state, scope) {
-			var result = state.getCached(pid);
-			if(result !== undef)
-				return result;
-			result = fn(state, scope,
-						p1 ? (p.length ? p : p()) : p,
-						p2 ? (opt1.length ? opt1 : opt1()) : opt1);
-
-			state.putCached(pid, result);
-
-			return result;
-		}
-		ret.constructor = Parser;
-		//ret.show = show;
-		return ret;
-	}
+function parserBind(p, f){ 
+    return function(state, scope, k){
+        return {func:p, args:[state, scope, function(result){
+            return k(f(result));
+        }]};
+    };
 }
 
 
-//true values apply toParser to the nth argument of the function
-var make       = function(fn, show){return _make(fn, show)};
-var make1P     = function(fn, show){return _make(fn, show, true)};
-var make2P     = function(fn, show){return _make(fn, show, true, true)};
-//apply toParser to all:
-var makeNP     = function(fn, show){return _make(fn, show, false, false, true)}; 
-//curries the first arg:
-var makeAction = function(fn, show){return _make(fn, show, false, true, false, true)};
+var do2 = function(p1, p2){
+    function fn(state, scope, k){
+        return { func: p1, args: [state, scope, function(result){
+            return result.success ? p2(state, scope, k) : k(result);
+        }]};
+    }
+    fn.constructor = Parser;
+    return fn;
+};
 
+var do_ = function(p1, p2, p3 /* ... */){
+    var parsers = map(toParser, arguments);
+    function fn(state, _scope, k){
+        var scope = {},
+            i = 1,
+            l = parsers.length,
+            result = parsers[0];
+        
+        scope.scope = _scope;
 
-function parserBind(p,f){ 
-	return function(state, scope){ return f(p(state, scope)) }
-}
+        for(; i < l; ++i)
+            result = do2(result, parsers[i]);
 
-//stops when one parser has failed and returns only the last result
-var do_ = makeNP(function(state, _scope, parsers){
-		var scope = {},
-			matched = "",
-			i = 0,
-			l = parsers.length,
-			p, result;
-		
-		scope.scope = _scope;
-
-		for(; i < l; ++i){
-			p = parsers[i];
-			result = (p.length ? p : p())(state, scope);
-			matched += result.matched;
-			if(!result.success)
-				break;			
-		}
-
-		result = extend({}, result);
-		result.matched = matched;
-
-		if(result.success)
-			delete result.expecting;
-
-		return result;
-	});
+        return result(state, scope, k);
+    }
+    fn.constructor = Parser;
+    return fn;
+};
 
 
 function bind(name, p){ 
-	if(name == "scope")
-		throw "Can't use 'scope' as an identifier!";
-	return function(state, scope){
-		var result = p(state, scope);
-		if(result.success)
-			scope[name] = result.ast;
-		return result;
-	}
-};
+    if(name == "scope")
+        throw "Can't use 'scope' as an identifier!";
+    return function(state, scope, k){
+        return { func: p, args: [state, scope, function(result){
+            if(result.success)
+                scope[name] = result.ast;
+            return k(result);
+        }]};
+    };
+}
 
-//returns the value of an identifier or applies the passed function to the bindings
+
 function ret(name, more){
-	var args;
-	if(more) 
-		args = slice(arguments);
+    var args;
+    if(more) 
+        args = slice(arguments);
 
-	return function(state, scope){
-		var ast, type = typeof name;
-		//if(args){
-		//	ast =  resolve(resolveBindings(args, scope));
-		//}else 
-		if(type == "string"){
-			if(!(name in scope))
-				throw 'Not in scope: "' + name + '"';
-			ast = scope[name];		
-		}else
-			ast = name(scope);
+    return function(state, scope, k){
 
-		return make_result(state, "", ast);
-	}
+        return { func: function(){
+            var ast, type = typeof name;
+            //if(args){
+            //  ast =  resolve(resolveBindings(args, scope));
+            //}else 
+            if(type == "string"){
+                if(!(name in scope))
+                    throw 'Not in scope: "' + name + '"';
+                ast = scope[name];      
+            }else
+                ast = name(scope);
+
+            return k(make_result(ast));
+
+        }};
+    };
 }
 
 function resolveBindings(arr, scope){
-	return isArray(arr) ?
-		map(function(e){ return (e in scope) ? scope[e] : resolveBindings(e) }, arr)
-		: arr;
+    return isArray(arr) ?
+        map(function(e){ return (e in scope) ? scope[e] : resolveBindings(e) }, arr)
+        : arr;
 }
 
 function withBound(fn){
-	var args = slice(arguments, 1)
-	return function(scope){
-		return fn.apply(null, map(function(e){ return scope[e] }, args));
-	}
+    var args = slice(arguments, 1);
+    return function(scope){
+        return fn.apply(null, map(function(e){ return scope[e] }, args));
+    };
 }
 
 var returnCall = compose(ret, withBound);
 
-function getParserState(state){
-	return make_result(state, "", state.index);
+function getParserState(state, scope, k){
+    return k(make_result(state.index));
 }
 
-function setParserState(id){ return function(state, scope){
-	state.scrollTo(scope[id]);
-	return EmptyOk(state);
-}}
+function setParserState(id){
+    return function(state, scope, k){
+        state.scrollTo(scope[id]);
+        return k(_EmptyOk);
+    };
+}
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
 //this function does what `pure` and `return` do in Haskell
-function parserReturn(value){ return function(state, scope){
-	return make_result(state, "", value);
-}}
+function parserReturn(value){
+    return function(state, scope, k){
+        return k(make_result(value));
+    };
+}
 
 var return_ = parserReturn;
 var pure = return_;
@@ -1046,237 +1148,307 @@ var pure = return_;
 //and applies the ast of the first to the ast of the second
 //the ast of the first must be a function
 function ap(a, b){
-	return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
+    return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
 }
 
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var parsecMap = makeAction(function(state, scope, f, p){
-		var result = p(state, scope);
-		if(!result.success)
-			return result;
-		result = extend({}, result);
-		result.ast = f(result.ast);
-		return result;
-	});
-
+function parsecMap(f, p){
+    f = curry(f);
+    return function(state, scope, k){
+        return {func:p, args:[state, scope, function(result){
+                if(!result.success)
+                    return k(result);
+                result = extend({}, result);
+                result.ast = f(result.ast);
+                return k(result);
+        }]};
+    };
+}
 
 var fmap = parsecMap;
 var liftM = fmap;
 var liftA = liftM;
-var liftA2 = function(f, a, b){ return ap(fmap(f, a), b) };
+var liftA2 = function(f, a, b   ){ return ap(   fmap(f, a), b)     };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
 
 
-// Given a parser that produces an array as an ast, returns a
-// parser that produces an ast with the array joined by a separator.
-function join_action(p, sep) {
-    return fmap(function(ast) { return ast.join(sep); }, p);
-}
-
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
-function skip_fst(p1, p2){ return do_(p1, p2) }
+//function skip_fst(p1, p2){ return do_(p1, p2) }
+var skip_fst = do2;
 
 //var skip_snd = function(p1, p2){ return liftA2(const_, p1, p2) };
 function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 
+function parserPlus(p1, p2){
+    function fn(state, scope, k){
+        return {func: p1, args:[state, scope, function(result){
+            var errors =  [];
+
+            function handleError(result){
+                var err = result.expecting;
+                if(err){
+                    if(isArray(err))
+                        errors = errors.concat(err);
+                    else
+                        errors.push(err);
+                }
+                if(!result.success)
+                    result.expecting = errors;
+                else
+                    delete result.expecting;
+            }
+            
+            handleError(result);
+            
+            return (result.ast !== undefined) ? {func:k, args: [result]} :
+                {func: p2, args: [state, scope, function(result){
+                    handleError(result);
+                    return k(result);
+                }]};
+        }]};
+    }
+    fn.constructor = Parser;
+    return fn;
+}
+
 // 'parserPlus' is a parser combinator that provides a choice between other parsers.
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var parserPlus = makeNP(function(state, scope, parsers){
-		var i = 0,
-			l = parsers.length,
-			result,
-			ast,
-			errors = [];
+function parserPlusN(p1, p2, p3 /* ... */){
+    var parsers = map(toParser, arguments);
+    return function(state, scope, k){
+        var i = 1,
+            l = parsers.length,
+            result = parsers[0];
+        
+        for(; i < l; ++i)
+            result = parserPlus(result, parsers[i]);
 
-		for(; i < l; ++i){
-			ast = (result = parsers[i](state, scope)).ast;
-			var err = result.expecting;
-			if(err){
-				if(isArray(err))
-					errors = errors.concat(err);
-				else
-					errors.push(err);
-			}
-			if(ast !== undefined)
-				break;
-		}
-		result = extend({}, result);
-		if(!result.success)
-			result.expecting = (!errors.length && isArray(errors)) ? errors[0] : errors;
-		else
-			delete result.expecting;
-		return result;
-	});
+        return result(state, scope, k);
+    };
+}
 
 var mplus = parserPlus;
 
 
-var try_ = make1P(function(state, scope, p){
-		var prevIndex = state.index,
-			prevLength = state.length,
-			result = p(state, scope);
-
-		if(result.success)
-			return result;
-		
-		state.index = prevIndex;
-		state.length = prevLength;
-		return _fail(state, result.expecting);
-
-	});
 
 
 //accepts multiple parsers and returns a new parser that
 //evaluates them in order and
 //succeeds if all the parsers succeeded
 //fails when a parser fails but returns the array of previous ASTs in the result
-var tokens = makeNP(function(state, scope, parsers){
-		var matched = "",
-			ast = [],
-			i = 0,
-			l = parsers.length,
-			p, result;
+function tokens(parsers){
+    return function(state, scope, k){
+        var i = 0,
+            ast = [],
+            length = parsers.length;
+        
+        function next(parser){
+            return function(state, scope, k){
+                return {func:parser, args:[state, scope, function(result){
+                    i++;
+                    if(!result.success)
+                        return k(result);
+                    if(result.ast !== undef)
+                        ast.push(result.ast);
+                    return i < length ? next(parsers[i])(state, scope, k) : k(result);
+                }]};
+            };
+        }
 
-		for(; i < l; ++i){
-			p = parsers[i];
-			result = (p.length ? p : p())(state, scope);
-			matched += result.matched;
-			if(!result.success)
-				break;
-			if(result.ast !== undef)
-				ast.push(result.ast);
-			
-		}
-		result = extend({}, result);
-		result.matched = matched;
-		result.ast = ast;
-
-		return result;
-	});
-
-
-function _many(onePlusMatch){ 
-	return make1P(function(state, scope, p){
-		var ast = [],
-			matched = "",
-			prevIndex = state.index,
-			result = p(state, scope);
-
-		if(onePlusMatch && !result.success) 
-			return _fail(state);
-		
-		while(result.success) {
-			if(result.ast !== undef)
-				ast.push(result.ast);
-			matched += result.matched;
-			if(state.index == prevIndex)
-				break;
-					
-			prevIndex = state.index;
-			result = p(state, scope);
-			
-		}
-		result = extend({}, result);
-		result.matched = matched;
-		result.ast = ast;
-		result.success = state.index == prevIndex;
-		if(result.success)
-			delete result.expecting;
-		return result;	
-	});
+        return {func:next(parsers[i]), args:[state, scope, function(_result){
+            var result = extend({}, _result);
+            result.ast = ast;
+            if(result.success)
+                delete result.expecting;                    
+            return k(result);
+        }]};
+    };
 }
 
+
+function _many(onePlusMatch){
+    return function(parser){
+        return function(state, scope, k){
+            var matchedOne = false,
+                ast = [];
+            
+            function next(parser){
+                return function(state, scope, k){
+                    return {func:parser, args:[state, scope, function(result){
+                        if(!result.success)
+                            return k(result);
+                            
+                        matchedOne = true;
+                        if(result.ast !== undef)
+                            ast.push(result.ast);
+                                
+                        return next(parser)(state, scope, k);
+                    }]};
+                };
+            }
+    
+            return {func:next(parser), args:[state, scope, function(_result){
+                var result = extend({}, _result);
+                result.success = !onePlusMatch || (matchedOne && onePlusMatch);
+                result.ast = ast;
+                if(result.success)
+                    delete result.expecting;                    
+                return k(result);
+            }]};
+        };
+    };
+}
 
 var many = _many(false);
 
 var many1 = _many(true);
 
-var skipMany = make1P(function(state, scope, p){
-		var result = many(p)(state, scope);
-		result = extend({}, result);
-		result.ast = undef;
-		return result;
-	});
 
-var satisfy = make(function(state, scope, cond){
-		var fstchar = state.at(0);
-		return (state.length > 0 && cond(fstchar)) ?
-			make_result(state.scroll(1), fstchar, fstchar) : 
-			_fail(state, fstchar);
-	});
+//tokenPrim :: (c -> ParseState -> startIndex -> Result) -> (c -> Parser)
+function tokenPrim(fn){
+    return function(c){
+        var pid = parser_id++;
+        var combinator = function(state, scope, k){
+            var startIndex = state.index;
+            var result = state.getCached(pid);
+            if(result !== undef)
+                return k(result);
+                
+            result = fn(c, state, startIndex);
+                        
+            state.putCached(pid, startIndex, result);
+            return k(result);
+        };
+        combinator.constructor = Parser;
+        return combinator;
+    };
+}
 
-var char_ = make(function(state, scope, c){
-		return (state.length > 0 && state.at(0) == c) ?
-			make_result(state.scroll(1), c, c) : 
-			_fail(state, c);
-	});
+//tokenPrimP1 :: (arg2 -> parser1Result -> ParseState -> startIndex -> newResult)
+//              -> (Parser -> arg2 -> Parser)
+function tokenPrimP1(fn){
+    return function(p1, arg2){
+        var pid = parser_id++;
+        var combinator = function(state, scope, k){
+            var startIndex = state.index;
+            var result = state.getCached(pid);
+            if(result !== undef)
+                return k(result);
+                
+            return {func:p1, args:[state, scope, function(result){
+                
+                    result = fn(arg2, result, state, startIndex);
+                    
+                    state.putCached(pid, startIndex, result);
+                    return k(result);
+                }]};
+            
+        };
+        combinator.constructor = Parser;
+        return combinator;
+    };
+}
 
-var string = make(function(state, scope, s){
-	var startIndex = state.index;
-	var result = tokens.apply(null, map(char_, s))(state, scope);
-	result.ast = result.ast.join("");
-	result = extend({}, result);
-	if(!result.success)
-		result.expecting = {at:startIndex, expecting: s};
-	else delete result.expecting;
-	if(!result.ast.length)
-		result.ast = undef;
-	return result;
+
+var try_ = tokenPrimP1(function(_, result, state, startIndex){
+    if(result.success)
+        return result;
+    state.scrollTo(startIndex);
+    return _fail(result.expecting);
+});
+
+
+var skipMany = function(p){
+    return tokenPrimP1(function(_, result, state, startIndex){
+        result = extend({}, result);
+        result.ast = undef;
+        return result;
+    })(many(p), null);
+};
+
+//string :: Char -> Parser
+var char_ = tokenPrim(function(c, state, startIndex){
+    if(state.length > 0 && state.at(0) == c){
+        state.scroll(1);
+        return make_result(c);
+    }
+    return _fail(c);
+});
+
+
+//string :: (Char -> Bool) -> Parser
+var satisfy = tokenPrim(function(cond, state){
+    var fstchar = state.at(0);
+    if(state.length > 0 && cond(fstchar)){
+        state.scroll(1);
+        return make_result(fstchar);
+    }
+    return _fail(fstchar);
 });
 
 
 
-function range(lower, upper){
-    return {
-		indexOf: function(ch){ return (ch >= lower && ch <= upper) ? true : -1 },
-		toString: function(){ return "range(" + lower + ", " + upper + ")" }
-	};
-}
-
-var optional_old = make1P(function(state, scope, p){
-		var result = p(state, scope);
-		if(!result.success && !result.matched.length){
-			result = extend({}, result);
-			delete result.expecting;
-			result.success = true;
-		}
-		return result;
-	});
+//string :: String -> Parser
+var string = function(s){ //TODO
+    return tokenPrimP1(function(_, result, state, startIndex){
+        result.ast = result.ast.join("");
+        result = extend({}, result);
+        if(!result.success)
+            result.expecting = {at:startIndex, expecting: s};
+        else delete result.expecting;
+        if(!result.ast.length) //TODO
+            result.ast = undef;
+        return result;
+    })(tokens(map(char_, s)), null);
+};
 
 
-var label = make1P(function(state, scope, p, str){
-		var prevIndex = state.index;
-		var result = p(state, scope);
-		if(!result.success){
-			result = extend({}, result);
-			result.expecting = {at: prevIndex, expecting: str};
-		}
-		return result;
-	});
+//tokenPrimP1 :: (a -> parser1Result -> ParseState -> startIndex -> newResult)
+//              -> (Parser -> a -> Parser)
+//label :: Parser -> String -> Parser
+var label = tokenPrimP1(function(str, result, state, startIndex){
+    if(!result.success){
+        result = extend({}, result);
+        result.expecting = {at: startIndex, expecting: str};
+    }
+    return result;  
+});
 
 
 //accepts a regexp or a string
 //in case of a string it either matches the whole string or nothing
-var match = make(function(state, scope, sr){
-		if(typeof sr == "string")
-			return (state.substring(0, sr.length) == sr) ?
-				make_result(state.scroll(sr.length), sr, sr) : _fail(state, sr);
-		if(sr.exec){
-			sr = new RegExp("^" + sr.source);
-			var substr = state.substring(0);
-			var match = sr.exec(substr);
-			match = match && match[0];
-			var length = match && match.length;
-			var matched = substr.substr(0, length);
-			return length ? make_result(state.scroll(length), matched, matched) : _fail(state, sr.source.substr(1));
-		}
-	});
+
+//match :: StringOrRegex -> Parser
+var match = tokenPrim(function(sr, state){
+        var result;
+        if(typeof sr == "string"){
+            if(state.substring(0, sr.length) == sr){
+                state.scroll(sr.length);
+                result = make_result(sr);
+            }else
+                result = _fail(sr);
+                        
+        }else if(sr.exec){
+            var rx = new RegExp("^" + sr.source);
+            var substr = state.substring(0);
+            var match = rx.exec(substr);
+            match = match && match[0];
+            var length = match && match.length;
+            var matched = substr.substr(0, length);
+            if(length){
+                state.scroll(length);
+                result = make_result(matched);
+            }else
+                result = _fail(sr.source);
+        }
+        return result;
+});
 
 
 //from Control.Monad
@@ -1291,84 +1463,133 @@ var match = make(function(state, scope, sr){
 
 function sequence(ms){
 
-	function k(m1, m2){
-		return do_(
-			bind("x", m1),
-			bind("xs", m2),
-			ret(withBound(cons, "x", "xs"))
-		);
-	}
+    function k(m1, m2){
+        return do_(
+            bind("x", m1),
+            bind("xs", m2),
+            ret(withBound(cons, "x", "xs"))
+        );
+    }
 
-	return foldr(k, return_([]), ms);
+    return foldr(k, return_([]), ms);
 }
 
 
 
 extend(operators, {
-	"<-" : {
-		func:	bind,
-		fixity: infixr(-1) //this is a special operator, don't use negative fixity anywhere else!
-		//,type:	[String, Parser, Parser]
-	},
-	">>=": {
-		func:	parserBind,
-		fixity: infixl(1)
-		//,type:	[Parser, Function, Parser]
-	},
-	"=<<": {
-		func:	flip(parserBind),
-		fixity: infixr(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	">>" : {
-		func:	skip_fst,
-		fixity: infixl(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"*>" : { //liftA2 (const id)
-		func:	skip_fst,
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<*" : { //liftA2 const
-		func:	skip_snd,
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<$>": {
-		func:	fmap,
-		fixity: infixl(4)
-		//,type:	[Function, Parser, Parser]
-	},
-	"<*>": {
-		func:	ap,
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<**>": { //liftA2 (flip ($))
-		func:	curry(liftA2)(flip(call)),
-		fixity: infixl(4)
-		//,type:	[Parser, Parser, Parser]
-	},
-		//the (<$) combinator uses the value on the left 
-		//if the parser on the right succeeds. x <$ p = pure x <* p
-		//from Control.Applicative: (<$>) . const :: Functor f => a -> f b -> f a
-	"<$" : {
-		func:	function(val, parser){ return skip_snd(pure(value), parser) },
-		fixity: infixl(4)
-		//,type:	["*", Parser, Parser]
-	},
-	"<|>": {
-		func:	parserPlus,
-		fixity: infixr(1)
-		//,type:	[Parser, Parser, Parser]
-	},
-	"<?>": {
-		func:	label,
-		fixity: infix(0)
-		//,type:	[Parser, String, Parser]
-	}	
+    "<-" : {
+        func:   bind,
+        fixity: infixr(-1) //this is a special operator, don't use negative fixity anywhere else!
+        //,type:    [String, Parser, Parser]
+    },
+    ">>=": {
+        func:   parserBind,
+        fixity: infixl(1)
+        //,type:    [Parser, Function, Parser]
+    },
+    "=<<": {
+        func:   flip(parserBind),
+        fixity: infixr(1)
+        //,type:    [Parser, Parser, Parser]
+    },
+    ">>" : {
+        func:   skip_fst,
+        fixity: infixl(1)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "*>" : { //liftA2 (const id)
+        func:   skip_fst,
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<*" : { //liftA2 const
+        func:   skip_snd,
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<$>": {
+        func:   fmap,
+        fixity: infixl(4)
+        //,type:    [Function, Parser, Parser]
+    },
+    "<*>": {
+        func:   ap,
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<**>": { //liftA2 (flip ($))
+        func:   curry(liftA2)(flip(call)),
+        fixity: infixl(4)
+        //,type:    [Parser, Parser, Parser]
+    },
+        //the (<$) combinator uses the value on the left 
+        //if the parser on the right succeeds. x <$ p = pure x <* p
+        //from Control.Applicative: (<$>) . const :: Functor f => a -> f b -> f a
+    "<$" : {
+        func:   function(val, parser){ return skip_snd(pure(value), parser) },
+        fixity: infixl(4)
+        //,type:    ["*", Parser, Parser]
+    },
+    "<|>": {
+        func:   parserPlus,
+        fixity: infixr(1)
+        //,type:    [Parser, Parser, Parser]
+    },
+    "<?>": {
+        func:   label,
+        fixity: infix(0)
+        //,type:    [Parser, String, Parser]
+    }   
 });
+
+
+extend(JSParsec, {
+    sequence        : sequence,
+    run             : run,
+    Parser          : Parser,
+    ParseState      : ParseState,
+    ps              : ps, 
+    toParser        : toParser,
+    unexpected      : unexpected,
+    parsecMap       : parsecMap,
+    fmap            : fmap,
+    liftM           : liftM,
+    liftA           : liftA,
+    liftA2          : liftA2,
+    liftA3          : liftA3,
+    ap              : ap,
+    parserBind      : parserBind,
+    parserReturn    : parserReturn,
+    return_         : return_,
+    pure            : pure,
+    parserFail      : parserFail,
+    fail            : fail,
+    parserZero      : parserZero,
+    mzero           : mzero,
+    empty           : empty,
+    parserPlus      : parserPlus,
+    parserPlusN     : parserPlusN,
+    mplus           : mplus,
+    do_             : do_,
+    do2             : do2,
+    bind            : bind,
+    ret             : ret,
+    withBound       : withBound,
+    returnCall      : returnCall,
+    getParserState  : getParserState,
+    setParserState  : setParserState,
+    tokens          : tokens,
+    many            : many,
+    many1           : many1,
+    string          : string,
+    char_           : char_,
+    satisfy         : satisfy,
+    label           : label,
+    try_            : try_,
+    skipMany        : skipMany,
+    match           : match
+});
+
 
 // -------------------------------------------------
 // Char
@@ -1536,7 +1757,22 @@ var anyChar = [satisfy, const_(true)].resolve();
 
 // -- defined in Prim
 
-
+extend(JSParsec, {
+    oneOf    : oneOf,
+    noneOf   : noneOf,
+    space    : space,
+    spaces   : spaces,
+    newline  : newline,
+    tab      : tab,
+    upper    : upper,
+    lower    : lower,
+    alphaNum : alphaNum,
+    letter   : letter,
+    digit    : digit,
+    hexDigit : hexDigit,
+    octDigit : octDigit,
+    anyChar  : anyChar
+});
 
 // -------------------------------------------------
 // Combinator
@@ -1576,7 +1812,7 @@ var anyChar = [satisfy, const_(true)].resolve();
 //
 
 function choice(ps){
-	return foldr(parserPlus, mzero, ps);
+    return foldr(parserPlus, mzero, ps);
 }
 
 
@@ -1593,7 +1829,7 @@ function choice(ps){
 //
 
 function option(x, p){
-	return parserPlus(p, return_(x));
+    return parserPlus(p, return_(x));
 }
 
 
@@ -1606,7 +1842,7 @@ function option(x, p){
 //
 
 function optionMaybe(p){
-	return option(Maybe.Nothing, liftM(Maybe.Just, p));
+    return option(Maybe.Nothing, liftM(Maybe.Just, p));
 }
 
 
@@ -1619,7 +1855,7 @@ function optionMaybe(p){
 //
 
 function optional(p){
-	return parserPlus(do_(p, return_(null)), return_(null));
+    return parserPlus(do_(p, return_(null)), return_(null));
 }
 
 
@@ -1635,7 +1871,7 @@ function optional(p){
 //
 
 var between = curry(function(open, close, p){
-	return do_(open, bind("x", p), close, ret("x"));
+    return do_(open, bind("x", p), close, ret("x"));
 });
 
 
@@ -1652,7 +1888,7 @@ var between = curry(function(open, close, p){
 //
 
 function skipMany1(p){
-	return do_(p, skipMany(p));
+    return do_(p, skipMany(p));
 }
 
 //-- | @many p@ applies the parser @p@ /one/ or more times. Returns a
@@ -1686,7 +1922,7 @@ function skipMany1(p){
 //
 
 function sepBy(p, sep){
-	return parserPlus(sepBy1(p, sep), return_([]));
+    return parserPlus(sepBy1(p, sep), return_([]));
 }
 
 
@@ -1702,11 +1938,11 @@ function sepBy(p, sep){
 //
 
 function sepBy1(p, sep){
-	return do_(
-		bind("x", p),
-		bind("xs", many( do_(sep, p) ) ),
-		returnCall(cons, "x", "xs")
-	);
+    return do_(
+        bind("x", p),
+        bind("xs", many( do_(sep, p) ) ),
+        returnCall(cons, "x", "xs")
+    );
 }
 
 
@@ -1725,19 +1961,19 @@ function sepBy1(p, sep){
 //
 
 function sepEndBy1(p, sep){
-	return do_(
-		bind("x", p),
-		parserPlus(
-			do_(
-				sep,
-				//bind("xs", sepEndBy(p, sep)),
-				//thanks to eager evaluation this doesn't terminate without eta-expansion
-				bind("xs", function(state){ return sepEndBy(p, sep)(state) }),
-				ret(function(scope){ return cons(scope.scope.x, scope.xs) })
-			),
-			ret(function(scope){ return [scope.x] })
-		)
-	);
+    return do_(
+        bind("x", p),
+        parserPlus(
+            do_(
+                sep,
+                //bind("xs", sepEndBy(p, sep)),
+                //thanks to eager evaluation this doesn't terminate without eta-expansion
+                bind("xs", function(state, scope, k){ return sepEndBy(p, sep)(state, scope, k) }),
+                ret(function(scope){ return cons(scope.scope.x, scope.xs) })
+            ),
+            ret(function(scope){ return [scope.x] })
+        )
+    );
 }
 
 //-- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
@@ -1752,7 +1988,7 @@ function sepEndBy1(p, sep){
 //
 
 function sepEndBy(p, sep){
-	return parserPlus(sepEndBy1(p, sep), return_([]));
+    return parserPlus(sepEndBy1(p, sep), return_([]));
 }
 
 //-- | @endBy1 p sep@ parses /one/ or more occurrences of @p@, seperated
@@ -1763,7 +1999,7 @@ function sepEndBy(p, sep){
 //
 
 function endBy1(p, sep){
-	return many1(do_( bind("x", p),  sep, ret("x") ));
+    return many1(do_( bind("x", p),  sep, ret("x") ));
 }
 
 
@@ -1777,7 +2013,7 @@ function endBy1(p, sep){
 //
 
 function endBy(p, sep){
-	return many(do_( bind("x", p),  sep, ret("x") ));
+    return many(do_( bind("x", p),  sep, ret("x") ));
 }
 
 
@@ -1791,7 +2027,7 @@ function endBy(p, sep){
 //
 
 function count(n, p){
-	return (n <= 0) ? return_([]) : sequence(replicate(n, p));
+    return (n <= 0) ? return_([]) : sequence(replicate(n, p));
 }
 
 //-- | @chainr p op x@ parser /zero/ or more occurrences of @p@,
@@ -1805,7 +2041,7 @@ function count(n, p){
 //
 
 function chainr(p, op, x){
-	return parserPlus(chainr1(p, op), return_(x));
+    return parserPlus(chainr1(p, op), return_(x));
 }
 
 
@@ -1820,7 +2056,7 @@ function chainr(p, op, x){
 //
 
 function chainl(p, op, x){
-	return parserPlus(chainl1(p, op), return_(x));
+    return parserPlus(chainl1(p, op), return_(x));
 }
 
 
@@ -1851,23 +2087,23 @@ function chainl(p, op, x){
 //
 
 function chainl1(p, op){
-	var scan =	do_( 
-					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
-				);
+    var scan =  do_( 
+                    bind("x", p), 
+                    function(state, scope, k){ return rest(scope.x)(state, scope, k) }
+                );
 
-	function rest(x){ 
-		var a = do_(
-					bind("f", op),
-					bind("y", p),
-					function(state, scope){
-						return rest(scope.f(x, scope.y))(state, scope)
-					}
-				);
-		return parserPlus(a, return_(x));
-	}
+    function rest(x){ 
+        var a = do_(
+                    bind("f", op),
+                    bind("y", p),
+                    function(state, scope, k){
+                        return rest(scope.f(x, scope.y))(state, scope, k);
+                    }
+                );
+        return parserPlus(a, return_(x));
+    }
 
-	return scan;
+    return scan;
 }
 
 
@@ -1889,23 +2125,23 @@ function chainl1(p, op){
 //
 
 function chainr1(p, op){
-	var scan =	do_( 
-					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
-				);
+    var scan =  do_( 
+                    bind("x", p), 
+                    function(state, scope, k){ return rest(scope.x)(state, scope, k) }
+                );
 
-	function rest(x){ 
-		var a = do_(
-					bind("f", op),
-					bind("y", scan),
-					function(state, scope){
-						return make_result(s, "", scope.f(x, scope.y))
-					}
-				);
-		return parserPlus(a, return_(x));
-	}
+    function rest(x){ 
+        var a = do_(
+                    bind("f", op),
+                    bind("y", scan),
+                    function(state, scope, k){
+                        return k(make_result(scope.f(x, scope.y)));
+                    }
+                );
+        return parserPlus(a, return_(x));
+    }
 
-	return scan;
+    return scan;
 }
 
 
@@ -1923,9 +2159,14 @@ function chainr1(p, op){
 //anyToken            = tokenPrim show (\pos _tok _toks -> pos) Just
 //
 
-function anyToken(state){
-	var at = state.at(0);
-	return at.length ? make_result(state.scroll(1), at, at) : _fail(state);
+function anyToken(state, scope, k){
+    var at = state.at(0);
+    if(at.length){
+        state.scroll(1);
+        return k(make_result(at));
+    }
+    
+    return k(_fail("anyToken"));
 }
 
 
@@ -1940,8 +2181,8 @@ function anyToken(state){
 
 // this works too:
 // var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
-function eof(state){
-    return make_result(state, "", undef, !state.length, state.length ? "end of input" : undef);
+function eof(state, scope, k){
+    return k(make_result(undef, !state.length, state.length ? "end of input" : undef));
 }
 
 //-- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
@@ -1963,15 +2204,15 @@ function eof(state){
 //
 
 function notFollowedBy(p){
-	return try_(
-		parserPlus(
-			do_(
-				bind("c", try_(p)),
-				unexpected("c")
-			),
-			return_(null)
-		)
-	);
+    return try_(
+        parserPlus(
+            do_(
+                bind("c", try_(p)),
+                unexpected("c")
+            ),
+            return_(null)
+        )
+    );
 }
 
 
@@ -1996,14 +2237,14 @@ function notFollowedBy(p){
 
 function manyTill(p, end){
 
-	function _scan(state){ return scan(state) }
+    function _scan(state, scope, k){ return scan(state, scope, k) }
 
-	var scan = parserPlus(
-		do_( end, return_([]) ),
-		do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
-	)
+    var scan = parserPlus(
+        do_( end, return_([]) ),
+        do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
+    );
 
-	return scan;
+    return scan;
 }
 
 
@@ -2017,13 +2258,40 @@ function manyTill(p, end){
 //                        }
 
 function lookAhead(p){
-	return do_(
-		bind("state", getParserState),
-		bind("x", p),
-		setParserState("state"),
-		ret("x")
-	);
+    return do_(
+        bind("state", getParserState),
+        bind("x", p),
+        setParserState("state"),
+        ret("x")
+    );
 }
+
+
+extend(JSParsec, {
+    choice        : choice
+  , count         : count
+  , between       : between
+  , option        : option
+  , optionMaybe   : optionMaybe
+  , optional      : optional
+  , skipMany1     : skipMany1
+//, many1         : many1
+  , sepBy         : sepBy
+  , sepBy1        : sepBy1
+  , endBy         : endBy
+  , endBy1        : endBy1
+  , sepEndBy      : sepEndBy
+  , sepEndBy1     : sepEndBy1
+  , chainl        : chainl
+  , chainl1       : chainl1
+  , chainr        : chainr
+  , chainr1       : chainr1
+  , eof           : eof
+  , notFollowedBy : notFollowedBy
+  , manyTill      : manyTill
+  , lookAhead     : lookAhead
+  , anyToken      : anyToken
+});
 
 // -------------------------------------------------
 // Token
@@ -2034,12 +2302,12 @@ function lookAhead(p){
 //-- for a description of how to use it.
 
 //module Text.Parsec.Token
-//    ( LanguageDef
-//    , GenLanguageDef (..)
-//    , TokenParser
-//    , GenTokenParser (..)
-//    , makeTokenParser
-//    ) where
+//  ( LanguageDef
+//  , GenLanguageDef (..)
+//  , TokenParser
+//  , GenTokenParser (..)
+//  , makeTokenParser
+//  ) where
 //
 //import Data.Char ( isAlpha, toLower, toUpper, isSpace, digitToInt )
 //import Data.List ( nub, sort )
@@ -2065,73 +2333,73 @@ function GenLanguageDef(){}
 data(GenLanguageDef, [["LanguageDef", {
 
 //data GenLanguageDef s u m
-//    = LanguageDef { 
-//    
-//    -- | Describes the start of a block comment. Use the empty string if the
-//    -- language doesn't support block comments. For example \"\/*\". 
+//  = LanguageDef { 
+//  
+//  -- | Describes the start of a block comment. Use the empty string if the
+//  -- language doesn't support block comments. For example \"\/*\". 
 //
-//    commentStart   :: String,
+//  commentStart   :: String,
 commentStart: String,
 //
-//    -- | Describes the end of a block comment. Use the empty string if the
-//    -- language doesn't support block comments. For example \"*\/\". 
+//  -- | Describes the end of a block comment. Use the empty string if the
+//  -- language doesn't support block comments. For example \"*\/\". 
 //
-//    commentEnd     :: String,
+//  commentEnd     :: String,
 commentEnd: String,
 //
-//    -- | Describes the start of a line comment. Use the empty string if the
-//    -- language doesn't support line comments. For example \"\/\/\". 
+//  -- | Describes the start of a line comment. Use the empty string if the
+//  -- language doesn't support line comments. For example \"\/\/\". 
 //
-//    commentLine    :: String,
+//  commentLine    :: String,
 commentLine: String,
 //
-//    -- | Set to 'True' if the language supports nested block comments. 
+//  -- | Set to 'True' if the language supports nested block comments. 
 //
-//    nestedComments :: Bool,
+//  nestedComments :: Bool,
 nestedComments: Boolean,
 //
-//    -- | This parser should accept any start characters of identifiers. For
-//    -- example @letter \<|> char \"_\"@. 
+//  -- | This parser should accept any start characters of identifiers. For
+//  -- example @letter \<|> char \"_\"@. 
 //
-//    identStart     :: ParsecT s u m Char,
+//  identStart     :: ParsecT s u m Char,
 identStart: Parser,
 //
-//    -- | This parser should accept any legal tail characters of identifiers.
-//    -- For example @alphaNum \<|> char \"_\"@. 
+//  -- | This parser should accept any legal tail characters of identifiers.
+//  -- For example @alphaNum \<|> char \"_\"@. 
 //
-//    identLetter    :: ParsecT s u m Char,
+//  identLetter    :: ParsecT s u m Char,
 identLetter: Parser,
 //
-//    -- | This parser should accept any start characters of operators. For
-//    -- example @oneOf \":!#$%&*+.\/\<=>?\@\\\\^|-~\"@ 
+//  -- | This parser should accept any start characters of operators. For
+//  -- example @oneOf \":!#$%&*+.\/\<=>?\@\\\\^|-~\"@ 
 //
-//    opStart        :: ParsecT s u m Char,
+//  opStart        :: ParsecT s u m Char,
 opStart: Parser,
 //
-//    -- | This parser should accept any legal tail characters of operators.
-//    -- Note that this parser should even be defined if the language doesn't
-//    -- support user-defined operators, or otherwise the 'reservedOp'
-//    -- parser won't work correctly. 
+//  -- | This parser should accept any legal tail characters of operators.
+//  -- Note that this parser should even be defined if the language doesn't
+//  -- support user-defined operators, or otherwise the 'reservedOp'
+//  -- parser won't work correctly. 
 //
-//    opLetter       :: ParsecT s u m Char,
+//  opLetter       :: ParsecT s u m Char,
 opLetter: Parser,
 //
-//    -- | The list of reserved identifiers. 
+//  -- | The list of reserved identifiers. 
 //
-//    reservedNames  :: [String],
+//  reservedNames  :: [String],
 reservedNames: Array,
 //
-//    -- | The list of reserved operators. 
+//  -- | The list of reserved operators. 
 //
-//    reservedOpNames:: [String],
+//  reservedOpNames:: [String],
 reservedOpNames: Array,
 //
-//    -- | Set to 'True' if the language is case sensitive. 
+//  -- | Set to 'True' if the language is case sensitive. 
 //
-//    caseSensitive  :: Bool
+//  caseSensitive  :: Bool
 caseSensitive: Boolean
 //
-//    }
+//  }
 
 }]]);
 
@@ -2152,231 +2420,231 @@ function GenTokenParser(){}
 data(GenTokenParser, [["TokenParser", {
 
 //data GenTokenParser s u m
-//    = TokenParser {
+//  = TokenParser {
 //
-//        -- | This lexeme parser parses a legal identifier. Returns the identifier
-//        -- string. This parser will fail on identifiers that are reserved
-//        -- words. Legal identifier (start) characters and reserved words are
-//        -- defined in the 'LanguageDef' that is passed to
-//        -- 'makeTokenParser'. An @identifier@ is treated as
-//        -- a single token using 'try'.
+//      -- | This lexeme parser parses a legal identifier. Returns the identifier
+//      -- string. This parser will fail on identifiers that are reserved
+//      -- words. Legal identifier (start) characters and reserved words are
+//      -- defined in the 'LanguageDef' that is passed to
+//      -- 'makeTokenParser'. An @identifier@ is treated as
+//      -- a single token using 'try'.
 //
-//        identifier       :: ParsecT s u m String,
+//      identifier       :: ParsecT s u m String,
 identifier: Parser,
-//        
-//        -- | The lexeme parser @reserved name@ parses @symbol 
-//        -- name@, but it also checks that the @name@ is not a prefix of a
-//        -- valid identifier. A @reserved@ word is treated as a single token
-//        -- using 'try'. 
+//      
+//      -- | The lexeme parser @reserved name@ parses @symbol 
+//      -- name@, but it also checks that the @name@ is not a prefix of a
+//      -- valid identifier. A @reserved@ word is treated as a single token
+//      -- using 'try'. 
 //
-//        reserved         :: String -> ParsecT s u m (),
+//      reserved         :: String -> ParsecT s u m (),
 reserved: Function,
 //
-//        -- | This lexeme parser parses a legal operator. Returns the name of the
-//        -- operator. This parser will fail on any operators that are reserved
-//        -- operators. Legal operator (start) characters and reserved operators
-//        -- are defined in the 'LanguageDef' that is passed to
-//        -- 'makeTokenParser'. An @operator@ is treated as a
-//        -- single token using 'try'. 
+//      -- | This lexeme parser parses a legal operator. Returns the name of the
+//      -- operator. This parser will fail on any operators that are reserved
+//      -- operators. Legal operator (start) characters and reserved operators
+//      -- are defined in the 'LanguageDef' that is passed to
+//      -- 'makeTokenParser'. An @operator@ is treated as a
+//      -- single token using 'try'. 
 //
-//        operator         :: ParsecT s u m String,
+//      operator         :: ParsecT s u m String,
 operator: Parser,
 //
-//        -- |The lexeme parser @reservedOp name@ parses @symbol
-//        -- name@, but it also checks that the @name@ is not a prefix of a
-//        -- valid operator. A @reservedOp@ is treated as a single token using
-//        -- 'try'. 
+//      -- |The lexeme parser @reservedOp name@ parses @symbol
+//      -- name@, but it also checks that the @name@ is not a prefix of a
+//      -- valid operator. A @reservedOp@ is treated as a single token using
+//      -- 'try'. 
 //
-//        reservedOp       :: String -> ParsecT s u m (),
+//      reservedOp       :: String -> ParsecT s u m (),
 reservedOp: Function,
 //
 //
-//        -- | This lexeme parser parses a single literal character. Returns the
-//        -- literal character value. This parsers deals correctly with escape
-//        -- sequences. The literal character is parsed according to the grammar
-//        -- rules defined in the Haskell report (which matches most programming
-//        -- languages quite closely). 
+//      -- | This lexeme parser parses a single literal character. Returns the
+//      -- literal character value. This parsers deals correctly with escape
+//      -- sequences. The literal character is parsed according to the grammar
+//      -- rules defined in the Haskell report (which matches most programming
+//      -- languages quite closely). 
 //
-//        charLiteral      :: ParsecT s u m Char,
+//      charLiteral      :: ParsecT s u m Char,
 charLiteral: Parser,
 //
-//        -- | This lexeme parser parses a literal string. Returns the literal
-//        -- string value. This parsers deals correctly with escape sequences and
-//        -- gaps. The literal string is parsed according to the grammar rules
-//        -- defined in the Haskell report (which matches most programming
-//        -- languages quite closely). 
+//      -- | This lexeme parser parses a literal string. Returns the literal
+//      -- string value. This parsers deals correctly with escape sequences and
+//      -- gaps. The literal string is parsed according to the grammar rules
+//      -- defined in the Haskell report (which matches most programming
+//      -- languages quite closely). 
 //
-//        stringLiteral    :: ParsecT s u m String,
+//      stringLiteral    :: ParsecT s u m String,
 stringLiteral: Parser,
 //
-//        -- | This lexeme parser parses a natural number (a positive whole
-//        -- number). Returns the value of the number. The number can be
-//        -- specified in 'decimal', 'hexadecimal' or
-//        -- 'octal'. The number is parsed according to the grammar
-//        -- rules in the Haskell report. 
+//      -- | This lexeme parser parses a natural number (a positive whole
+//      -- number). Returns the value of the number. The number can be
+//      -- specified in 'decimal', 'hexadecimal' or
+//      -- 'octal'. The number is parsed according to the grammar
+//      -- rules in the Haskell report. 
 //
-//        natural          :: ParsecT s u m Integer,
+//      natural          :: ParsecT s u m Integer,
 natural: Parser,
 //
-//        -- | This lexeme parser parses an integer (a whole number). This parser
-//        -- is like 'natural' except that it can be prefixed with
-//        -- sign (i.e. \'-\' or \'+\'). Returns the value of the number. The
-//        -- number can be specified in 'decimal', 'hexadecimal'
-//        -- or 'octal'. The number is parsed according
-//        -- to the grammar rules in the Haskell report. 
-//        
-//        integer          :: ParsecT s u m Integer,
+//      -- | This lexeme parser parses an integer (a whole number). This parser
+//      -- is like 'natural' except that it can be prefixed with
+//      -- sign (i.e. \'-\' or \'+\'). Returns the value of the number. The
+//      -- number can be specified in 'decimal', 'hexadecimal'
+//      -- or 'octal'. The number is parsed according
+//      -- to the grammar rules in the Haskell report. 
+//      
+//      integer          :: ParsecT s u m Integer,
 integer: Parser,
 //
-//        -- | This lexeme parser parses a floating point value. Returns the value
-//        -- of the number. The number is parsed according to the grammar rules
-//        -- defined in the Haskell report. 
+//      -- | This lexeme parser parses a floating point value. Returns the value
+//      -- of the number. The number is parsed according to the grammar rules
+//      -- defined in the Haskell report. 
 //
-//        float            :: ParsecT s u m Double,
+//      float            :: ParsecT s u m Double,
 float_: Parser,
 //
-//        -- | This lexeme parser parses either 'natural' or a 'float'.
-//        -- Returns the value of the number. This parsers deals with
-//        -- any overlap in the grammar rules for naturals and floats. The number
-//        -- is parsed according to the grammar rules defined in the Haskell report. 
+//      -- | This lexeme parser parses either 'natural' or a 'float'.
+//      -- Returns the value of the number. This parsers deals with
+//      -- any overlap in the grammar rules for naturals and floats. The number
+//      -- is parsed according to the grammar rules defined in the Haskell report. 
 //
-//        naturalOrFloat   :: ParsecT s u m (Either Integer Double),
+//      naturalOrFloat   :: ParsecT s u m (Either Integer Double),
 naturalOrFloat: Parser,
 //
-//        -- | Parses a positive whole number in the decimal system. Returns the
-//        -- value of the number. 
+//      -- | Parses a positive whole number in the decimal system. Returns the
+//      -- value of the number. 
 //
-//        decimal          :: ParsecT s u m Integer,
+//      decimal          :: ParsecT s u m Integer,
 decimal: Parser,
 //
-//        -- | Parses a positive whole number in the hexadecimal system. The number
-//        -- should be prefixed with \"0x\" or \"0X\". Returns the value of the
-//        -- number. 
+//      -- | Parses a positive whole number in the hexadecimal system. The number
+//      -- should be prefixed with \"0x\" or \"0X\". Returns the value of the
+//      -- number. 
 //
-//        hexadecimal      :: ParsecT s u m Integer,
+//      hexadecimal      :: ParsecT s u m Integer,
 hexadecimal: Parser,
 //
-//        -- | Parses a positive whole number in the octal system. The number
-//        -- should be prefixed with \"0o\" or \"0O\". Returns the value of the
-//        -- number. 
+//      -- | Parses a positive whole number in the octal system. The number
+//      -- should be prefixed with \"0o\" or \"0O\". Returns the value of the
+//      -- number. 
 //
-//        octal            :: ParsecT s u m Integer,
+//      octal            :: ParsecT s u m Integer,
 octal: Parser,
 //
-//        -- | Lexeme parser @symbol s@ parses 'string' @s@ and skips
-//        -- trailing white space. 
+//      -- | Lexeme parser @symbol s@ parses 'string' @s@ and skips
+//      -- trailing white space. 
 //
-//        symbol           :: String -> ParsecT s u m String,
+//      symbol           :: String -> ParsecT s u m String,
 symbol: Function,
 //
-//        -- | @lexeme p@ first applies parser @p@ and than the 'whiteSpace'
-//        -- parser, returning the value of @p@. Every lexical
-//        -- token (lexeme) is defined using @lexeme@, this way every parse
-//        -- starts at a point without white space. Parsers that use @lexeme@ are
-//        -- called /lexeme/ parsers in this document.
-//        -- 
-//        -- The only point where the 'whiteSpace' parser should be
-//        -- called explicitly is the start of the main parser in order to skip
-//        -- any leading white space.
-//        --
-//        -- >    mainParser  = do{ whiteSpace
-//        -- >                     ; ds <- many (lexeme digit)
-//        -- >                     ; eof
-//        -- >                     ; return (sum ds)
-//        -- >                     }
+//      -- | @lexeme p@ first applies parser @p@ and than the 'whiteSpace'
+//      -- parser, returning the value of @p@. Every lexical
+//      -- token (lexeme) is defined using @lexeme@, this way every parse
+//      -- starts at a point without white space. Parsers that use @lexeme@ are
+//      -- called /lexeme/ parsers in this document.
+//      -- 
+//      -- The only point where the 'whiteSpace' parser should be
+//      -- called explicitly is the start of the main parser in order to skip
+//      -- any leading white space.
+//      --
+//      -- >    mainParser  = do{ whiteSpace
+//      -- >                     ; ds <- many (lexeme digit)
+//      -- >                     ; eof
+//      -- >                     ; return (sum ds)
+//      -- >                     }
 //
-//        lexeme           :: forall a. ParsecT s u m a -> ParsecT s u m a,
+//      lexeme           :: forall a. ParsecT s u m a -> ParsecT s u m a,
 lexeme: Function,
 //
-//        -- | Parses any white space. White space consists of /zero/ or more
-//        -- occurrences of a 'space', a line comment or a block (multi
-//        -- line) comment. Block comments may be nested. How comments are
-//        -- started and ended is defined in the 'LanguageDef'
-//        -- that is passed to 'makeTokenParser'. 
+//      -- | Parses any white space. White space consists of /zero/ or more
+//      -- occurrences of a 'space', a line comment or a block (multi
+//      -- line) comment. Block comments may be nested. How comments are
+//      -- started and ended is defined in the 'LanguageDef'
+//      -- that is passed to 'makeTokenParser'. 
 //
-//        whiteSpace       :: ParsecT s u m (),
+//      whiteSpace       :: ParsecT s u m (),
 whiteSpace: Parser,
 //
-//        -- | Lexeme parser @parens p@ parses @p@ enclosed in parenthesis,
-//        -- returning the value of @p@.
+//      -- | Lexeme parser @parens p@ parses @p@ enclosed in parenthesis,
+//      -- returning the value of @p@.
 //
-//        parens           :: forall a. ParsecT s u m a -> ParsecT s u m a,
+//      parens           :: forall a. ParsecT s u m a -> ParsecT s u m a,
 parens: Function,
 //
-//        -- | Lexeme parser @braces p@ parses @p@ enclosed in braces (\'{\' and
-//        -- \'}\'), returning the value of @p@. 
+//      -- | Lexeme parser @braces p@ parses @p@ enclosed in braces (\'{\' and
+//      -- \'}\'), returning the value of @p@. 
 //
-//        braces           :: forall a. ParsecT s u m a -> ParsecT s u m a,
+//      braces           :: forall a. ParsecT s u m a -> ParsecT s u m a,
 braces: Function,
 //
-//        -- | Lexeme parser @angles p@ parses @p@ enclosed in angle brackets (\'\<\'
-//        -- and \'>\'), returning the value of @p@. 
+//      -- | Lexeme parser @angles p@ parses @p@ enclosed in angle brackets (\'\<\'
+//      -- and \'>\'), returning the value of @p@. 
 //
-//        angles           :: forall a. ParsecT s u m a -> ParsecT s u m a,
+//      angles           :: forall a. ParsecT s u m a -> ParsecT s u m a,
 angles: Function,
 //
-//        -- | Lexeme parser @brackets p@ parses @p@ enclosed in brackets (\'[\'
-//        -- and \']\'), returning the value of @p@. 
+//      -- | Lexeme parser @brackets p@ parses @p@ enclosed in brackets (\'[\'
+//      -- and \']\'), returning the value of @p@. 
 //
-//        brackets         :: forall a. ParsecT s u m a -> ParsecT s u m a,
+//      brackets         :: forall a. ParsecT s u m a -> ParsecT s u m a,
 brackets: Function,
 //
-//        -- | DEPRECATED: Use 'brackets'.
+//      -- | DEPRECATED: Use 'brackets'.
 //
-//        squares          :: forall a. ParsecT s u m a -> ParsecT s u m a,
+//      squares          :: forall a. ParsecT s u m a -> ParsecT s u m a,
 squares: Function,
 //
-//        -- | Lexeme parser |semi| parses the character \';\' and skips any
-//        -- trailing white space. Returns the string \";\". 
+//      -- | Lexeme parser |semi| parses the character \';\' and skips any
+//      -- trailing white space. Returns the string \";\". 
 //
-//        semi             :: ParsecT s u m String,
+//      semi             :: ParsecT s u m String,
 semi: Parser,
 //
-//        -- | Lexeme parser @comma@ parses the character \',\' and skips any
-//        -- trailing white space. Returns the string \",\". 
+//      -- | Lexeme parser @comma@ parses the character \',\' and skips any
+//      -- trailing white space. Returns the string \",\". 
 //
-//        comma            :: ParsecT s u m String,
+//      comma            :: ParsecT s u m String,
 comma: Parser,
 //
-//        -- | Lexeme parser @colon@ parses the character \':\' and skips any
-//        -- trailing white space. Returns the string \":\". 
+//      -- | Lexeme parser @colon@ parses the character \':\' and skips any
+//      -- trailing white space. Returns the string \":\". 
 //
-//        colon            :: ParsecT s u m String,
+//      colon            :: ParsecT s u m String,
 colon: Parser,
 //
-//        -- | Lexeme parser @dot@ parses the character \'.\' and skips any
-//        -- trailing white space. Returns the string \".\". 
+//      -- | Lexeme parser @dot@ parses the character \'.\' and skips any
+//      -- trailing white space. Returns the string \".\". 
 //
-//        dot              :: ParsecT s u m String,
+//      dot              :: ParsecT s u m String,
 dot: Parser,
 //
-//        -- | Lexeme parser @semiSep p@ parses /zero/ or more occurrences of @p@
-//        -- separated by 'semi'. Returns a list of values returned by
-//        -- @p@.
+//      -- | Lexeme parser @semiSep p@ parses /zero/ or more occurrences of @p@
+//      -- separated by 'semi'. Returns a list of values returned by
+//      -- @p@.
 //
-//        semiSep          :: forall a . ParsecT s u m a -> ParsecT s u m [a],
+//      semiSep          :: forall a . ParsecT s u m a -> ParsecT s u m [a],
 semiSep: Function,
 //
-//        -- | Lexeme parser @semiSep1 p@ parses /one/ or more occurrences of @p@
-//        -- separated by 'semi'. Returns a list of values returned by @p@. 
+//      -- | Lexeme parser @semiSep1 p@ parses /one/ or more occurrences of @p@
+//      -- separated by 'semi'. Returns a list of values returned by @p@. 
 //
-//        semiSep1         :: forall a . ParsecT s u m a -> ParsecT s u m [a],
+//      semiSep1         :: forall a . ParsecT s u m a -> ParsecT s u m [a],
 semiSep1: Function,
 //
-//        -- | Lexeme parser @commaSep p@ parses /zero/ or more occurrences of
-//        -- @p@ separated by 'comma'. Returns a list of values returned
-//        -- by @p@. 
+//      -- | Lexeme parser @commaSep p@ parses /zero/ or more occurrences of
+//      -- @p@ separated by 'comma'. Returns a list of values returned
+//      -- by @p@. 
 //
-//        commaSep        :: forall a . ParsecT s u m a -> ParsecT s u m [a]
+//      commaSep        :: forall a . ParsecT s u m a -> ParsecT s u m [a]
 commaSep: Function,
 //
-//        -- | Lexeme parser @commaSep1 p@ parses /one/ or more occurrences of
-//        -- @p@ separated by 'comma'. Returns a list of values returned
-//        -- by @p@. 
+//      -- | Lexeme parser @commaSep1 p@ parses /one/ or more occurrences of
+//      -- @p@ separated by 'comma'. Returns a list of values returned
+//      -- by @p@. 
 //
-//        commaSep1        :: forall a . ParsecT s u m a -> ParsecT s u m [a]
+//      commaSep1        :: forall a . ParsecT s u m a -> ParsecT s u m [a]
 commaSep1: Function
-//    }
+//  }
 }]]);
 
 //
@@ -2416,41 +2684,41 @@ commaSep1: Function
 //-- >  ...
 //
 //makeTokenParser :: (Stream s m Char)
-//                => GenLanguageDef s u m -> GenTokenParser s u m
+//              => GenLanguageDef s u m -> GenTokenParser s u m
 //makeTokenParser languageDef
-//    = TokenParser{ identifier = identifier
-//                 , reserved = reserved
-//                 , operator = operator
-//                 , reservedOp = reservedOp
+//  = TokenParser{ identifier = identifier
+//               , reserved = reserved
+//               , operator = operator
+//               , reservedOp = reservedOp
 //
-//                 , charLiteral = charLiteral
-//                 , stringLiteral = stringLiteral
-//                 , natural = natural
-//                 , integer = integer
-//                 , float = float
-//                 , naturalOrFloat = naturalOrFloat
-//                 , decimal = decimal
-//                 , hexadecimal = hexadecimal
-//                 , octal = octal
+//               , charLiteral = charLiteral
+//               , stringLiteral = stringLiteral
+//               , natural = natural
+//               , integer = integer
+//               , float = float
+//               , naturalOrFloat = naturalOrFloat
+//               , decimal = decimal
+//               , hexadecimal = hexadecimal
+//               , octal = octal
 //
-//                 , symbol = symbol
-//                 , lexeme = lexeme
-//                 , whiteSpace = whiteSpace
+//               , symbol = symbol
+//               , lexeme = lexeme
+//               , whiteSpace = whiteSpace
 //
-//                 , parens = parens
-//                 , braces = braces
-//                 , angles = angles
-//                 , brackets = brackets
-//                 , squares = brackets
-//                 , semi = semi
-//                 , comma = comma
-//                 , colon = colon
-//                 , dot = dot
-//                 , semiSep = semiSep
-//                 , semiSep1 = semiSep1
-//                 , commaSep = commaSep
-//                 , commaSep1 = commaSep1
-//                 }
+//               , parens = parens
+//               , braces = braces
+//               , angles = angles
+//               , brackets = brackets
+//               , squares = brackets
+//               , semi = semi
+//               , comma = comma
+//               , colon = colon
+//               , dot = dot
+//               , semiSep = semiSep
+//               , semiSep1 = semiSep1
+//               , commaSep = commaSep
+//               , commaSep1 = commaSep1
+//               }
 
 
 function makeTokenParser(languageDef){
@@ -2458,42 +2726,42 @@ function makeTokenParser(languageDef){
         throw "Type error: unexpected '" + languageDef.constructor.name + "', expecting 'GenLanguageDef.LanguageDef'";
 
 
-//    -----------------------------------------------------------
-//    -- White space & symbols
-//    -----------------------------------------------------------
+//  -----------------------------------------------------------
+//  -- White space & symbols
+//  -----------------------------------------------------------
 
-//    symbol name
-//        = lexeme (string name)
+//  symbol name
+//      = lexeme (string name)
 
 function symbol(name){
-	return lexeme(string(name));
+    return lexeme(string(name));
 }
 
 
 //
-//    lexeme p
-//        = do{ x <- p; whiteSpace; return x  }
+//  lexeme p
+//      = do{ x <- p; whiteSpace; return x  }
 
 function lexeme(p){
-	return do_(bind("x", p), whiteSpace, ret("x") );
+    return do_(bind("x", p), whiteSpace, ret("x") );
 }
 
 
 //
 //
-//    simpleSpace =
-//        skipMany1 (satisfy isSpace)
+//  simpleSpace =
+//      skipMany1 (satisfy isSpace)
 
 var simpleSpace =
         skipMany1(satisfy(isSpace));
 
 
 //
-//    oneLineComment =
-//        do{ try (string (commentLine languageDef))
-//          ; skipMany (satisfy (/= '\n'))
-//          ; return ()
-//          }
+//  oneLineComment =
+//      do{ try (string (commentLine languageDef))
+//        ; skipMany (satisfy (/= '\n'))
+//        ; return ()
+//        }
 
 var oneLineComment =
         cs( try_(string(languageDef.commentLine)) )
@@ -2502,13 +2770,13 @@ var oneLineComment =
 
 
 //
-//    inCommentSingle
-//        =   do{ try (string (commentEnd languageDef)); return () }
-//        <|> do{ skipMany1 (noneOf startEnd)         ; inCommentSingle }
-//        <|> do{ oneOf startEnd                      ; inCommentSingle }
-//        <?> "end of comment"
-//        where
-//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+//  inCommentSingle
+//      =   do{ try (string (commentEnd languageDef)); return () }
+//      <|> do{ skipMany1 (noneOf startEnd)         ; inCommentSingle }
+//      <|> do{ oneOf startEnd                      ; inCommentSingle }
+//      <?> "end of comment"
+//      where
+//        startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
 
 var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
 
@@ -2522,14 +2790,14 @@ var inCommentSingle
 
 
 
-//    inCommentMulti
-//        =   do{ try (string (commentEnd languageDef)) ; return () }
-//        <|> do{ multiLineComment                     ; inCommentMulti }
-//        <|> do{ skipMany1 (noneOf startEnd)          ; inCommentMulti }
-//        <|> do{ oneOf startEnd                       ; inCommentMulti }
-//        <?> "end of comment"
-//        where
-//          startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
+//  inCommentMulti
+//      =   do{ try (string (commentEnd languageDef)) ; return () }
+//      <|> do{ multiLineComment                     ; inCommentMulti }
+//      <|> do{ skipMany1 (noneOf startEnd)          ; inCommentMulti }
+//      <|> do{ oneOf startEnd                       ; inCommentMulti }
+//      <?> "end of comment"
+//      where
+//        startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
 
 function _inCommentMulti(st){ return inCommentMulti(st) }
 
@@ -2542,65 +2810,65 @@ var inCommentMulti
 
 
 
-//    inComment
-//        | nestedComments languageDef  = inCommentMulti
-//        | otherwise                = inCommentSingle
+//  inComment
+//      | nestedComments languageDef  = inCommentMulti
+//      | otherwise                = inCommentSingle
 
 var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
 
 
-//    multiLineComment =
-//        do { try (string (commentStart languageDef))
-//           ; inComment
-//           }
+//  multiLineComment =
+//      do { try (string (commentStart languageDef))
+//         ; inComment
+//         }
 
 function _multiLineComment(st){ return multiLineComment(st) }
 
 var multiLineComment =
         do_( try_ (string (languageDef.commentStart))
-           , inComment)
+           , inComment);
 
 
-//    whiteSpace
-//        | noLine && noMulti  = skipMany (simpleSpace <?> "")
-//        | noLine             = skipMany (simpleSpace <|> multiLineComment <?> "")
-//        | noMulti            = skipMany (simpleSpace <|> oneLineComment <?> "")
-//        | otherwise          = skipMany (simpleSpace <|> oneLineComment <|> multiLineComment <?> "")
-//        where
-//          noLine  = null (commentLine languageDef)
-//          noMulti = null (commentStart languageDef)
+//  whiteSpace
+//      | noLine && noMulti  = skipMany (simpleSpace <?> "")
+//      | noLine             = skipMany (simpleSpace <|> multiLineComment <?> "")
+//      | noMulti            = skipMany (simpleSpace <|> oneLineComment <?> "")
+//      | otherwise          = skipMany (simpleSpace <|> oneLineComment <|> multiLineComment <?> "")
+//      where
+//        noLine  = null (commentLine languageDef)
+//        noMulti = null (commentStart languageDef)
 
 var noLine   = null_(languageDef.commentLine);
 var noMulti  = null_(languageDef.commentStart);
 
 var whiteSpace = (
-	(noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
-	noLine				? [skipMany, [simpleSpace ,"<|>", multiLineComment ,"<?>", ""]] :
-	noMulti				? [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<?>", ""]] :
-						  [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<|>", multiLineComment ,"<?>", ""]]
-	).resolve();
+    (noLine && noMulti) ? [skipMany, [simpleSpace ,"<?>", ""]] :
+    noLine              ? [skipMany, [simpleSpace ,"<|>", multiLineComment ,"<?>", ""]] :
+    noMulti             ? [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<?>", ""]] :
+                          [skipMany, [simpleSpace ,"<|>", oneLineComment ,"<|>", multiLineComment ,"<?>", ""]]
+    ).resolve();
 
 
 
 
-//    -----------------------------------------------------------
-//    -- Bracketing
-//    -----------------------------------------------------------
-//    parens p        = between (symbol "(") (symbol ")") p
-//    braces p        = between (symbol "{") (symbol "}") p
-//    angles p        = between (symbol "<") (symbol ">") p
-//    brackets p      = between (symbol "[") (symbol "]") p
+//  -----------------------------------------------------------
+//  -- Bracketing
+//  -----------------------------------------------------------
+//  parens p        = between (symbol "(") (symbol ")") p
+//  braces p        = between (symbol "{") (symbol "}") p
+//  angles p        = between (symbol "<") (symbol ">") p
+//  brackets p      = between (symbol "[") (symbol "]") p
 //
-//    semi            = symbol ";"
-//    comma           = symbol ","
-//    dot             = symbol "."
-//    colon           = symbol ":"
+//  semi            = symbol ";"
+//  comma           = symbol ","
+//  dot             = symbol "."
+//  colon           = symbol ":"
 //
-//    commaSep p      = sepBy p comma
-//    semiSep p       = sepBy p semi
+//  commaSep p      = sepBy p comma
+//  semiSep p       = sepBy p semi
 //
-//    commaSep1 p     = sepBy1 p comma
-//    semiSep1 p      = sepBy1 p semi
+//  commaSep1 p     = sepBy1 p comma
+//  semiSep1 p      = sepBy1 p semi
 
 
 
@@ -2638,9 +2906,9 @@ function semiSep1(p){
 
 
 
-//    -----------------------------------------------------------
-//    -- Chars & Strings
-//    -----------------------------------------------------------
+//  -----------------------------------------------------------
+//  -- Chars & Strings
+//  -----------------------------------------------------------
 
 
 var ascii2codes     = ["BS","HT","LF","VT","FF","CR","SO","SI","EM",
@@ -2659,59 +2927,59 @@ var ascii3          = ['\NUL','\SOH','\STX','\ETX','\EOT','\ENQ','\ACK',
                        '\SYN','\ETB','\CAN','\SUB','\ESC','\DEL'];
 
 
-//    -- escape code tables
-//    escMap          = zip ("abfnrtv\\\"\'") ("\a\b\f\n\r\t\v\\\"\'")
-//    asciiMap        = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
+//  -- escape code tables
+//  escMap          = zip ("abfnrtv\\\"\'") ("\a\b\f\n\r\t\v\\\"\'")
+//  asciiMap        = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
 
 var escMap          = zip("abfnrtv\\\"\'", "\a\b\f\n\r\t\v\\\"\'");
 var asciiMap        = zip((ascii3codes + ascii2codes), (ascii3 + ascii2));
 
 //
-//    charEsc         = choice (map parseEsc escMap)
-//                    where
-//                      parseEsc (c,code)     = do{ char c; return code }
+//  charEsc         = choice (map parseEsc escMap)
+//                  where
+//                    parseEsc (c,code)     = do{ char c; return code }
 
-var charEsc         = choice(map(parseEsc, escMap))
+var charEsc         = choice(map(parseEsc, escMap));
                     
 function parseEsc(tuple){
     return do_( char_(tuple[0]), return_(tuple[1]) );
 }
 
 
-//    charAscii       = choice (map parseAscii asciiMap)
-//                    where
-//                      parseAscii (asc,code) = try (do{ string asc; return code })
+//  charAscii       = choice (map parseAscii asciiMap)
+//                  where
+//                    parseAscii (asc,code) = try (do{ string asc; return code })
 
-var charAscii       = choice(map(parseAscii, asciiMap))
+var charAscii       = choice(map(parseAscii, asciiMap));
 
 function parseAscii(tuple){
     return try_(do_( string(tuple[0]), return_(tuple[1]) ));
 }
 
 
-//    stringLetter    = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
+//  stringLetter    = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
 
 var stringLetter    = satisfy(function(c){ return (c != '"') && (c != '\\') && (c > '\026') }); //TODO: last expr.
 
 
-//    escapeEmpty     = char '&'
+//  escapeEmpty     = char '&'
 
 var escapeEmpty     = char_('&');
 
 
-//    escapeGap       = do{ many1 space
-//                        ; char '\\' <?> "end of string gap"
-//                        }
+//  escapeGap       = do{ many1 space
+//                      ; char '\\' <?> "end of string gap"
+//                      }
 
 var escapeGap       = cs( many1, space )
                         ( char_('\\') ,"<?>", "end of string gap").resolve();
                         
 
-//    charNum         = do{ code <- decimal
-//                                  <|> do{ char 'o'; number 8 octDigit }
-//                                  <|> do{ char 'x'; number 16 hexDigit }
-//                        ; return (toEnum (fromInteger code))
-//                        }
+//  charNum         = do{ code <- decimal
+//                                <|> do{ char 'o'; number 8 octDigit }
+//                                <|> do{ char 'x'; number 16 hexDigit }
+//                      ; return (toEnum (fromInteger code))
+//                      }
 
 var charNum         = cs( "code" ,"<-", _decimal
                                       ,"<|>", do_( char_('o'), number(8, octDigit) )
@@ -2720,60 +2988,60 @@ var charNum         = cs( "code" ,"<-", _decimal
                         ( ret(function(scope){ return toEnum(fromInteger(scope.code)) }) ).resolve();
 
 
-//    charControl     = do{ char '^'
-//                        ; code <- upper
-//                        ; return (toEnum (fromEnum code - fromEnum 'A'))
-//                        }
+//  charControl     = do{ char '^'
+//                      ; code <- upper
+//                      ; return (toEnum (fromEnum code - fromEnum 'A'))
+//                      }
 
 var charControl     = cs( char_('^') )
                         ( "code" ,"<-", upper )
                         ( ret(function(scope){ return toEnum(fromEnum(scope.code) - fromEnum('A'))  }) ).resolve();
  
 
-//    -- escape codes
-//    escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
-//                    <?> "escape code"
+//  -- escape codes
+//  escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
+//                  <?> "escape code"
 
 var escapeCode      = [charEsc ,"<|>", charNum ,"<|>", charAscii ,"<|>", charControl
                     ,"<?>", "escape code"].resolve();
 
 
-//    charEscape      = do{ char '\\'; escapeCode }
+//  charEscape      = do{ char '\\'; escapeCode }
 
 var charEscape        = do_(char_('\\'), escapeCode);
 
 
 
-//    charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
+//  charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
 
-var charLetter        = satisfy(function(c){ return (c != '\'') && (c != '\\') && (c > '\026') }); //TODO: last expr.
+var charLetter      = satisfy(function(c){ return (c != '\'') && (c != '\\') && (c > '\026') }); //TODO: last expr.
 
 
 //
-//    characterChar   = charLetter <|> charEscape
-//                    <?> "literal character"
+//  characterChar   = charLetter <|> charEscape
+//                  <?> "literal character"
 
-var characterChar    = [charLetter ,"<|>", charEscape
+var characterChar   = [charLetter ,"<|>", charEscape
                     ,"<?>", "literal character"].resolve();
 
 
-//    charLiteral     = lexeme (between (char '\'')
-//                                      (char '\'' <?> "end of character")
-//                                      characterChar )
-//                    <?> "character"
+//  charLiteral     = lexeme (between (char '\'')
+//                                    (char '\'' <?> "end of character")
+//                                    characterChar )
+//                  <?> "character"
 
-var charLiteral        = [lexeme, [between, char_('\''), 
+var charLiteral     = [lexeme, [between, char_('\''), 
                                     [char_('\'') ,"<?>", "end of character"],
                                     characterChar]
                     ,"<?>", "character"].resolve();
 
 
 //
-//    stringEscape    = do{ char '\\'
-//                        ;     do{ escapeGap  ; return Nothing }
-//                          <|> do{ escapeEmpty; return Nothing }
-//                          <|> do{ esc <- escapeCode; return (Just esc) }
-//                        }
+//  stringEscape    = do{ char '\\'
+//                      ;     do{ escapeGap  ; return Nothing }
+//                        <|> do{ escapeEmpty; return Nothing }
+//                        <|> do{ esc <- escapeCode; return (Just esc) }
+//                      }
 
 var stringEscape    = cs( char_('\\') )
                         (         cs( escapeGap   ) ( return_, Maybe.Nothing )
@@ -2782,9 +3050,9 @@ var stringEscape    = cs( char_('\\') )
                         ).resolve();
 
 
-//    stringChar      =   do{ c <- stringLetter; return (Just c) }
-//                    <|> stringEscape
-//                    <?> "string character"
+//  stringChar      =   do{ c <- stringLetter; return (Just c) }
+//                  <|> stringEscape
+//                  <?> "string character"
 
 var stringChar      = [cs( "c" ,"<-", stringLetter )
                          ( returnCall, Maybe.Just, "c" )
@@ -2792,13 +3060,13 @@ var stringChar      = [cs( "c" ,"<-", stringLetter )
                       ,"<?>", "string character"].resolve();
 
 
-//    stringLiteral   = lexeme (
-//                      do{ str <- between (char '"')
-//                                         (char '"' <?> "end of string")
-//                                         (many stringChar)
-//                        ; return (foldr (maybe id (:)) "" str)
-//                        }
-//                      <?> "literal string")
+//  stringLiteral   = lexeme (
+//                    do{ str <- between (char '"')
+//                                       (char '"' <?> "end of string")
+//                                       (many stringChar)
+//                      ; return (foldr (maybe id (:)) "" str)
+//                      }
+//                    <?> "literal string")
 
 var stringLiteral   = lexeme(
                           [ cs( "str", "<-", between, char_('"'),
@@ -2811,30 +3079,30 @@ var stringLiteral   = lexeme(
 
 
 
-//    -----------------------------------------------------------
-//    -- Numbers
-//    -----------------------------------------------------------
+//  -----------------------------------------------------------
+//  -- Numbers
+//  -----------------------------------------------------------
 
 
-//    number base baseDigit
-//        = do{ digits <- many1 baseDigit
-//            ; let n = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 digits
-//            ; seq n (return n)
-//            }
+//  number base baseDigit
+//      = do{ digits <- many1 baseDigit
+//          ; let n = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 digits
+//          ; seq n (return n)
+//          }
 
 function number(base, baseDigit){ 
     return cs( "digits" ,"<-", many1, baseDigit )
-			 ( ret, function(scope){
-						return foldl(function(x, d){
-								  return base * x + toInteger(digitToInt(d))
-							  }, 0, scope.digits);
-			 }).resolve();
+             ( ret, function(scope){
+                        return foldl(function(x, d){
+                                  return base * x + toInteger(digitToInt(d));
+                              }, 0, scope.digits);
+             }).resolve();
 }
 
 
-//    decimal         = number 10 digit
-//    hexadecimal     = do{ oneOf "xX"; number 16 hexDigit }
-//    octal           = do{ oneOf "oO"; number 8 octDigit  }
+//  decimal         = number 10 digit
+//  hexadecimal     = do{ oneOf "xX"; number 16 hexDigit }
+//  octal           = do{ oneOf "oO"; number 8 octDigit  }
 
 function _decimal(st, sc){ return decimal(st, sc) }
 
@@ -2845,27 +3113,29 @@ var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
 
 
 //
-//    fraction        = do{ char '.'
-//                        ; digits <- many1 digit <?> "fraction"
-//                        ; return (foldr op 0.0 digits)
-//                        }
-//                      <?> "fraction"
-//                    where
-//                      op d f    = (f + fromIntegral (digitToInt d))/10.0
+//  fraction        = do{ char '.'
+//                      ; digits <- many1 digit <?> "fraction"
+//                      ; return (foldr op 0.0 digits)
+//                      }
+//                    <?> "fraction"
+//                  where
+//                    op d f    = (f + fromIntegral (digitToInt d))/10.0
+
+function _op(d, f){
+    return (f + fromIntegral(digitToInt(d))) / 10.0;
+}
 
 var fraction        = [ cs( char_('.'))
                           ( "digits" ,"<-", many1, digit ,"<?>", "fraction")
-                          ( ret, function(scope){ return foldr(op, 0.0, scope.digits) })
+                          ( ret, function(scope){ return foldr(_op, 0.0, scope.digits) })
                         ,"<?>", "fraction"].resolve();
-function op(d, f){
-	return (f + fromIntegral(digitToInt(d))) / 10.0
-}
+
 
 
 //
-//    sign            =   (char '-' >> return negate)
-//                    <|> (char '+' >> return id)
-//                    <|> return id
+//  sign            =   (char '-' >> return negate)
+//                  <|> (char '+' >> return id)
+//                  <|> return id
 
 var sign            = [[char_('-') ,">>", return_, negate]
                        ,"<|>", [char_('+') ,">>", return_, id]
@@ -2874,16 +3144,19 @@ var sign            = [[char_('-') ,">>", return_, negate]
 
 
 //
-//    exponent'       = do{ oneOf "eE"
-//                        ; f <- sign
-//                        ; e <- decimal <?> "exponent"
-//                        ; return (power (f e))
-//                        }
-//                      <?> "exponent"
-//                    where
-//                       power e  | e < 0      = 1.0/power(-e)
-//                                | otherwise  = fromInteger (10^e)
+//  exponent'       = do{ oneOf "eE"
+//                      ; f <- sign
+//                      ; e <- decimal <?> "exponent"
+//                      ; return (power (f e))
+//                      }
+//                    <?> "exponent"
+//                  where
+//                     power e  | e < 0      = 1.0/power(-e)
+//                              | otherwise  = fromInteger (10^e)
 
+function power(e){
+    return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
+}
 
 var exponent_       = [ cs( oneOf, "eE" )
                           ( "f" ,"<-", sign )
@@ -2891,70 +3164,66 @@ var exponent_       = [ cs( oneOf, "eE" )
                           ( returnCall, power, "f", "e")
                       ,"<?>", "exponent"].resolve();
 
-function power(e){
-	return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
-}
 
 
-
-//    fractExponent n = do{ fract <- fraction
-//                        ; expo  <- option 1.0 exponent'
-//                        ; return ((fromInteger n + fract)*expo)
-//                        }
-//                    <|>
-//                      do{ expo <- exponent'
-//                        ; return ((fromInteger n)*expo)
-//                        }
+//  fractExponent n = do{ fract <- fraction
+//                      ; expo  <- option 1.0 exponent'
+//                      ; return ((fromInteger n + fract)*expo)
+//                      }
+//                  <|>
+//                    do{ expo <- exponent'
+//                      ; return ((fromInteger n)*expo)
+//                      }
 
 function fractExponent(n){
-	return [
-		  cs( "fract" ,"<-", fraction )
-			( "expo"  ,"<-", option, 1.0, exponent_ )
-			( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
-		,"<|>",
-		  cs( "expo", "<-", exponent_ )
-			( ret, function(scope){ return fromInteger(n) * scope.expo })
-	].resolve();
+    return [
+          cs( "fract" ,"<-", fraction )
+            ( "expo"  ,"<-", option, 1.0, exponent_ )
+            ( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
+        ,"<|>",
+          cs( "expo", "<-", exponent_ )
+            ( ret, function(scope){ return fromInteger(n) * scope.expo })
+    ].resolve();
 }
 
-//    -- floats
-//    floating        = do{ n <- decimal
-//                        ; fractExponent n
-//                        }
+//  -- floats
+//  floating        = do{ n <- decimal
+//                      ; fractExponent n
+//                      }
 
 var floating        = cs( "n" ,"<-", decimal)
-                        ( function(state, scope){ return fractExponent(scope.n)(state) }).resolve();
+                        ( function(state, scope, k){ return fractExponent(scope.n)(state, scope, k) }).resolve();
 
 
-//    fractFloat n    = do{ f <- fractExponent n
-//                        ; return (Right f)
-//                        }
+//  fractFloat n    = do{ f <- fractExponent n
+//                      ; return (Right f)
+//                      }
 
 function fractFloat(n){
-	return cs( "f" ,"<-", fractExponent, n)
-			 ( returnCall, Either.Right, "f").resolve();
+    return cs( "f" ,"<-", fractExponent, n)
+             ( returnCall, Either.Right, "f").resolve();
 }
 
 
 //
-//    decimalFloat    = do{ n <- decimal
-//                        ; option (Left n)
-//                                 (fractFloat n)
-//                        }
+//  decimalFloat    = do{ n <- decimal
+//                      ; option (Left n)
+//                               (fractFloat n)
+//                      }
 
 var decimalFloat    = cs( "n" ,"<-", decimal )
-                        ( function(state, scope){ 
-	                           return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope);
+                        ( function(state, scope, k){ 
+                               return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope, k);
                         }).resolve();
 
 
 //
-//    zeroNumFloat    =  do{ n <- hexadecimal <|> octal
-//                         ; return (Left n)
-//                         }
-//                    <|> decimalFloat
-//                    <|> fractFloat 0
-//                    <|> return (Left 0)
+//  zeroNumFloat    =  do{ n <- hexadecimal <|> octal
+//                       ; return (Left n)
+//                       }
+//                  <|> decimalFloat
+//                  <|> fractFloat 0
+//                  <|> return (Left 0)
 
 
 var zeroNumFloat    =  [ cs( "n" ,"<-", hexadecimal ,"<|>", octal )
@@ -2962,15 +3231,15 @@ var zeroNumFloat    =  [ cs( "n" ,"<-", hexadecimal ,"<|>", octal )
                        ,"<|>", decimalFloat
                        ,"<|>", fractFloat(0)
                        ,"<|>", return_, Either.Left(0)
-	                   ].resolve();
+                       ].resolve();
 
 
 
 
-//    natFloat        = do{ char '0'
-//                        ; zeroNumFloat
-//                        }
-//                      <|> decimalFloat
+//  natFloat        = do{ char '0'
+//                      ; zeroNumFloat
+//                      }
+//                    <|> decimalFloat
 
 var natFloat        = [do_( char_('0'),
                             zeroNumFloat
@@ -2979,25 +3248,25 @@ var natFloat        = [do_( char_('0'),
 
 
 
-//    zeroNumber      = do{ char '0'
-//                        ; hexadecimal <|> octal <|> decimal <|> return 0
-//                        }
-//                      <?> ""
+//  zeroNumber      = do{ char '0'
+//                      ; hexadecimal <|> octal <|> decimal <|> return 0
+//                      }
+//                    <?> ""
 
 var zeroNumber      = [ cs( char_, '0')
                           ( hexadecimal ,"<|>", octal ,"<|>", decimal ,"<|>", return_, 0 )
                       ,"<?>", ""].resolve();
 
 
-//    nat             = zeroNumber <|> decimal
+//  nat             = zeroNumber <|> decimal
 
 var nat             = [zeroNumber ,"<|>", decimal].resolve();
 
-//    -- integers and naturals
-//    int             = do{ f <- lexeme sign
-//                        ; n <- nat
-//                        ; return (f n)
-//                        }
+//  -- integers and naturals
+//  int             = do{ f <- lexeme sign
+//                      ; n <- nat
+//                      ; return (f n)
+//                      }
 
 var int_            = cs( "f" ,"<-", lexeme, sign )
                         ( "n" ,"<-", nat )
@@ -3005,11 +3274,11 @@ var int_            = cs( "f" ,"<-", lexeme, sign )
 
 
 
-//    naturalOrFloat  = lexeme (natFloat) <?> "number"
+//  naturalOrFloat  = lexeme (natFloat) <?> "number"
 //
-//    float           = lexeme floating   <?> "float"
-//    integer         = lexeme int        <?> "integer"
-//    natural         = lexeme nat        <?> "natural"
+//  float           = lexeme floating   <?> "float"
+//  integer         = lexeme int        <?> "integer"
+//  natural         = lexeme nat        <?> "natural"
 
 var naturalOrFloat  = [lexeme, natFloat   ,"<?>", "number" ].resolve();
 
@@ -3020,31 +3289,31 @@ var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 
 
 
-//    -----------------------------------------------------------
-//    -- Operators & reserved ops
-//    -----------------------------------------------------------
+//  -----------------------------------------------------------
+//  -- Operators & reserved ops
+//  -----------------------------------------------------------
 
 
-//    reservedOp name =
-//        lexeme $ try $
-//        do{ string name
-//          ; notFollowedBy (opLetter languageDef) <?> ("end of " ++ show name)
-//          }
+//  reservedOp name =
+//      lexeme $ try $
+//      do{ string name
+//        ; notFollowedBy (opLetter languageDef) <?> ("end of " ++ show name)
+//        }
 
 function reservedOp(name){
-	return [lexeme ,"$", try_ ,"$",
-				cs( string(name) ) 
-				  ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
-			].resolve();
+    return [lexeme ,"$", try_ ,"$",
+                cs( string(name) ) 
+                  ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
+            ].resolve();
 }
 
 
-//    oper =
-//        do{ c <- (opStart languageDef)
-//          ; cs <- many (opLetter languageDef)
-//          ; return (c:cs)
-//          }
-//        <?> "operator"
+//  oper =
+//      do{ c <- (opStart languageDef)
+//        ; cs <- many (opLetter languageDef)
+//        ; return (c:cs)
+//        }
+//      <?> "operator"
 
 var oper =
         [ cs( "c"  ,"<-", languageDef.opStart )
@@ -3053,88 +3322,89 @@ var oper =
          ,"<?>", "operator"].resolve();
 
 
-//    operator =
-//        lexeme $ try $
-//        do{ name <- oper
-//          ; if (isReservedOp name)
-//             then unexpected ("reserved operator " ++ show name)
-//             else return name
-//          }
-
-var operator =
-        [lexeme ,"$", try_ ,"$",
-        cs( "name" ,"<-", oper )
-          ( function(state, scope){
-					return (isReservedOp(scope.name) ? 
-						unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope);
-          })].resolve();
-
-
-//
-//    isReservedOp name =
-//        isReserved (sort (reservedOpNames languageDef)) name
+//  isReservedOp name =
+//      isReserved (sort (reservedOpNames languageDef)) name
 
 function isReservedOp(name){
         return isReserved( sort( languageDef.reservedOpNames ), name);
 }
 
 
-//    -----------------------------------------------------------
-//    -- Identifiers & Reserved words
-//    -----------------------------------------------------------
+//  operator =
+//      lexeme $ try $
+//      do{ name <- oper
+//        ; if (isReservedOp name)
+//           then unexpected ("reserved operator " ++ show name)
+//           else return name
+//        }
+
+var operator =
+        [lexeme ,"$", try_ ,"$",
+        cs( "name" ,"<-", oper )
+          ( function(state, scope, k){
+                    return (isReservedOp(scope.name) ? 
+                        unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope, k);
+          })].resolve();
 
 
-//    reserved name =
-//        lexeme $ try $
-//        do{ caseString name
-//          ; notFollowedBy (identLetter languageDef) <?> ("end of " ++ show name)
-//          }
-
-function reserved(name){
-	return [lexeme ,"$", try_ ,"$",
-			cs( caseString(name) )
-			  ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
-			].resolve();
-}
 
 
-//    caseString name
-//        | caseSensitive languageDef  = string name
-//        | otherwise               = do{ walk name; return name }
-//        where
-//          walk []     = return ()
-//          walk (c:cs) = do{ caseChar c <?> msg; walk cs }
+
+//  -----------------------------------------------------------
+//  -- Identifiers & Reserved words
+//  -----------------------------------------------------------
+
+
+//  caseString name
+//      | caseSensitive languageDef  = string name
+//      | otherwise               = do{ walk name; return name }
+//      where
+//        walk []     = return ()
+//        walk (c:cs) = do{ caseChar c <?> msg; walk cs }
 //
-//          caseChar c  | isAlpha c  = char (toLower c) <|> char (toUpper c)
-//                      | otherwise  = char c
+//        caseChar c  | isAlpha c  = char (toLower c) <|> char (toUpper c)
+//                    | otherwise  = char c
 //
-//          msg         = show name
+//        msg         = show name
 
 function caseString(name){
 
-	function walk(cs){
-		return (!cs.length) ? return_(null) :
-					   do_( label(caseChar(cs[0]), "" + name),
-							walk(slice(cs, 1)) );
-	}
+    function walk(cs){
+        return (!cs.length) ? return_(null) :
+                       do_( label(caseChar(cs[0]), "" + name),
+                            walk(slice(cs, 1)) );
+    }
 
-	function caseChar(c){
-		return isAlpha(c) ? parserPlus( char_(c.toLowerCase()),
-										char_(c.toUpperCase())) : 
-							char_(c);
-	}
+    function caseChar(c){
+        return isAlpha(c) ? parserPlus( char_(c.toLowerCase()),
+                                        char_(c.toUpperCase())) : 
+                            char_(c);
+    }
 
-	return languageDef.caseSensitive ? string(name) : do_( walk(name), return_(name) );
+    return languageDef.caseSensitive ? string(name) : do_( walk(name), return_(name) );
 
 }
 
+//  reserved name =
+//      lexeme $ try $
+//      do{ caseString name
+//        ; notFollowedBy (identLetter languageDef) <?> ("end of " ++ show name)
+//        }
 
-//    ident
-//        = do{ c <- identStart languageDef
-//            ; cs <- many (identLetter languageDef)
-//            ; return (c:cs)
-//            }
-//        <?> "identifier"
+function reserved(name){
+    return [lexeme ,"$", try_ ,"$",
+            cs( caseString(name) )
+              ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
+            ].resolve();
+}
+
+
+//  ident
+//      = do{ c <- identStart languageDef
+//          ; cs <- many (identLetter languageDef)
+//          ; return (c:cs)
+//          }
+//      <?> "identifier"
 
 var ident
         = [ cs( "c"  ,"<-", languageDef.identStart )
@@ -3143,76 +3413,73 @@ var ident
            ,"<?>", "identifier"].resolve();
 
 
-//    identifier =
-//        lexeme $ try $
-//        do{ name <- ident
-//          ; if (isReservedName name)
-//             then unexpected ("reserved word " ++ show name)
-//             else return name
-//          }
+//  isReserved names name
+//      = scan names
+//      where
+//        scan []       = False
+//        scan (r:rs)   = case (compare r name) of
+//                          LT  -> scan rs
+//                          EQ  -> True
+//                          GT  -> False
+
+function isReserved(names, name){
+    function scan(rs){
+        if(!rs.length) 
+            return false;
+
+        var ord = compare(rs[0], name);
+
+        return  ord.LT ? scan(slice(rs, 1)) :
+                ord.EQ ? true : 
+                ord.GT ? false : null;
+    }
+
+    return scan(names);
+}
+
+
+//  isReservedName name
+//      = isReserved theReservedNames caseName
+//      where
+//        caseName      | caseSensitive languageDef  = name
+//                      | otherwise               = map toLower name
+
+function isReservedName(name){
+    var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
+
+    return isReserved(theReservedNames, caseName);
+}
+
+
+//  identifier =
+//      lexeme $ try $
+//      do{ name <- ident
+//        ; if (isReservedName name)
+//           then unexpected ("reserved word " ++ show name)
+//           else return name
+//        }
 
 var identifier =
         [lexeme ,"$", try_ ,"$",
         cs( "name" ,"<-", ident )
-          ( function(state, scope){
-				return ( isReservedName(scope.name) ? 
-							unexpected("reserved word " + scope.name) : 
-							return_(scope.name)
-						)(state, scope);
+          ( function(state, scope, k){
+                return ( isReservedName(scope.name) ? 
+                            unexpected("reserved word " + scope.name) : 
+                            return_(scope.name)
+                        )(state, scope, k);
           })].resolve();
 
 
-
-//    isReservedName name
-//        = isReserved theReservedNames caseName
-//        where
-//          caseName      | caseSensitive languageDef  = name
-//                        | otherwise               = map toLower name
-
-function isReservedName(name){
-	var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
-
-	return isReserved(theReservedNames, caseName);
-}
-
-
-//    isReserved names name
-//        = scan names
-//        where
-//          scan []       = False
-//          scan (r:rs)   = case (compare r name) of
-//                            LT  -> scan rs
-//                            EQ  -> True
-//                            GT  -> False
-
-function isReserved(names, name){
-	function scan(rs){
-		if(!rs.length) 
-			return false;
-
-		var ord = compare(rs[0], name);
-
-		return  ord.LT ? scan(slice(rs, 1)) :
-				ord.EQ ? true : 
-				ord.GT ? false : null;
-	}
-
-	return scan(names);
-}
-
-//    theReservedNames
-//        | caseSensitive languageDef  = sortedNames
-//        | otherwise               = map (map toLower) sortedNames
-//        where
-//          sortedNames   = sort (reservedNames languageDef)
+//  theReservedNames
+//      | caseSensitive languageDef  = sortedNames
+//      | otherwise               = map (map toLower) sortedNames
+//      where
+//        sortedNames   = sort (reservedNames languageDef)
 
 var sortedNames = sort(languageDef.reservedNames);
 var theReservedNames = languageDef.caseSensitive ? 
-							sortedNames : 
-							map( function(str){ return str.toLowerCase() }, sortedNames );
-
-
-
+                            sortedNames : 
+                            map( function(str){ return str.toLowerCase() }, sortedNames );
 
 
 
@@ -3251,6 +3518,13 @@ var theReservedNames = languageDef.caseSensitive ?
         commaSep1  : commaSep1
     });
 }
+
+
+extend(JSParsec, {
+    GenLanguageDef  : GenLanguageDef,
+    GenTokenParser  : GenTokenParser,
+    makeTokenParser : makeTokenParser
+});
 
 // -------------------------------------------------
 // Language
@@ -3331,9 +3605,9 @@ var emptyDef = GenLanguageDef.LanguageDef(record,
 //                , commentLine    = "--"
 //                , nestedComments = True
 //                , identStart     = letter
-//                , identLetter	   = alphaNum <|> oneOf "_'"
-//                , opStart	       = opLetter haskellStyle
-//                , opLetter	   = oneOf ":!#$%&*+./<=>?@\\^|-~"
+//                , identLetter    = alphaNum <|> oneOf "_'"
+//                , opStart        = opLetter haskellStyle
+//                , opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~"
 //                , reservedOpNames= []
 //                , reservedNames  = []
 //                , caseSensitive  = True
@@ -3360,16 +3634,16 @@ var haskellStyle = GenLanguageDef.LanguageDef(record,
 //
 //javaStyle  :: LanguageDef st
 //javaStyle   = emptyDef
-//		{ commentStart	 = "/*"
-//		, commentEnd	 = "*/"
-//		, commentLine	 = "//"
-//		, nestedComments = True
-//		, identStart	 = letter
-//		, identLetter	 = alphaNum <|> oneOf "_'"
-//		, reservedNames  = []
-//		, reservedOpNames= []
+//      { commentStart   = "/*"
+//      , commentEnd     = "*/"
+//      , commentLine    = "//"
+//      , nestedComments = True
+//      , identStart     = letter
+//      , identLetter    = alphaNum <|> oneOf "_'"
+//      , reservedNames  = []
+//      , reservedOpNames= []
 //      , caseSensitive  = False
-//		}
+//      }
 
 var javaStyle = GenLanguageDef.LanguageDef(record,
                { commentStart    : "/*"
@@ -3382,7 +3656,7 @@ var javaStyle = GenLanguageDef.LanguageDef(record,
                , opLetter        : emptyDefOpLetter
                , reservedOpNames : []
                , reservedNames   : []
-               , caseSensitive   : false //TODO: why?
+               , caseSensitive   : false
                });
 
 //-----------------------------------------------------------
@@ -3423,18 +3697,18 @@ var haskell98Def = haskellStyle.update(
 //
 //haskellDef  :: LanguageDef st
 //haskellDef   = haskell98Def
-//	        { identLetter	 = identLetter haskell98Def <|> char '#'
-//	        , reservedNames	 = reservedNames haskell98Def ++
-//    				   ["foreign","import","export","primitive"
-//    				   ,"_ccall_","_casm_"
-//    				   ,"forall"
-//    				   ]
+//          { identLetter    = identLetter haskell98Def <|> char '#'
+//          , reservedNames  = reservedNames haskell98Def ++
+//                     ["foreign","import","export","primitive"
+//                     ,"_ccall_","_casm_"
+//                     ,"forall"
+//                     ]
 //                }
 
 var haskellDef = haskell98Def.update(
-	        { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
-	        , reservedNames : haskell98Def.reservedNames.concat(
-    				              ["foreign","import","export","primitive"
+            { identLetter   : [haskell98Def.identLetter ,"<|>", char_('#')].resolve()
+            , reservedNames : haskell98Def.reservedNames.concat(
+                                  ["foreign","import","export","primitive"
                                   ,"_ccall_","_casm_"
                                   ,"forall"
                                   ])
@@ -3445,7 +3719,7 @@ var haskellDef = haskell98Def.update(
 //haskell :: TokenParser st
 //haskell      = makeTokenParser haskellDef
 
-var haskell = makeTokenParser(haskellDef);
+//var haskell = makeTokenParser(haskellDef);
 
 
 //-----------------------------------------------------------
@@ -3456,25 +3730,38 @@ var haskell = makeTokenParser(haskellDef);
 //
 //mondrianDef :: LanguageDef st
 //mondrianDef = javaStyle
-//		{ reservedNames = [ "case", "class", "default", "extends"
-//				  , "import", "in", "let", "new", "of", "package"
-//				  ]
+//      { reservedNames = [ "case", "class", "default", "extends"
+//                , "import", "in", "let", "new", "of", "package"
+//                ]
 //                , caseSensitive  = True
-//		}
+//      }
 
 
 var mondrianDef = javaStyle.update(
-		{ reservedNames : [ "case", "class", "default", "extends"
-				          , "import", "in", "let", "new", "of", "package"
-				          ]
+        { reservedNames : [ "case", "class", "default", "extends"
+                          , "import", "in", "let", "new", "of", "package"
+                          ]
         , caseSensitive : true
-		});
+        });
 
 //-- | A lexer for the mondrian language.
 //
 //mondrian :: TokenParser st
 //mondrian    = makeTokenParser mondrianDef
 
-var mondrian = makeTokenParser(mondrianDef);
+//var mondrian = makeTokenParser(mondrianDef);
 
 
+
+extend(JSParsec, {
+    emptyDef    : emptyDef,
+    haskellStyle: haskellStyle,
+    javaStyle   : javaStyle,
+    haskellDef  : haskellDef,
+    mondrianDef : mondrianDef,
+    getHaskell  : function(){ return makeTokenParser(haskellDef)  },
+    getMondrian : function(){ return makeTokenParser(mondrianDef) }
+});
+
+
+})();
