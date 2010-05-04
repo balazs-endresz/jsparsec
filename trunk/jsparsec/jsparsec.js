@@ -979,9 +979,9 @@ function trampolineAsync(x, count){ //TODO: use while
     x = x.func.apply(null, x.args || []);
     
     if(count % 500 == 0 )
-        setTimeout(function(){ trampoline2(x, count) }, 1);
+        setTimeout(function(){ trampolineAsync(x, count) }, 1);
     else
-        trampoline2(x, count);
+        trampolineAsync(x, count);
 }
 
 function run(p, strOrState, complete, error, async){
