@@ -1,4 +1,5 @@
-/*! 
+(function(){
+/** @license
  * JSParsec - A parser combinator library for JavaScript
  * 
  * Version: 0.0.5
@@ -39,7 +40,7 @@ function curry(fn){
 var id = function(x){ return x };
 
 //var const_ = curry(function(x, _){ return x });
-function const_(x){ return function(_){ return x } };
+function const_(x){ return function(_){ return x } }
 
 var call = curry(function(a, b){ return a(b) });
 
@@ -184,7 +185,7 @@ function maybe(n, f, m){
 function compare(x, y){
     return x === y ? Ordering.EQ : 
            x <=  y ? Ordering.LT :
-                     Ordering.GT
+                     Ordering.GT;
 }
 
 
@@ -239,16 +240,16 @@ function replicate(n, x){
 
 function negate(a){
     return -a;
-};
+}
 
 //returns True if a list is empty, otherwise False
 function null_(a){
     return !a.length;
-};
+}
 
 
 function elem(x, xs){
-    return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
+    return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1;
 }
 
 function isSpace(c){
@@ -298,12 +299,74 @@ function range(lower, upper){
     };
 }
 
+function namespace(){
+    var o, d;
+    map(function(v) {
+        d = v.split(".");
+        o = window[d[0]] = window[d[0]] || {};
+        map(function(v2){
+            o = o[v2] = o[v2] || {};
+        }, d.slice(1));
+    }, arguments);
+    return o;
+}
+
+var JSParsec = window.JSParsec = {};
+
+extend(JSParsec, {
+    curry       : curry,
+    const_      : const_,
+    "const"     : const_,
+    isArray     : isArray,
+    isDefined   : isDefined,
+    slice       : slice,
+    foldl       : foldl,
+    foldr       : foldr,
+    map         : map,
+    filter      : filter,
+    indexOf     : indexOf,
+    lastIndexOf : lastIndexOf,
+    zip         : zip,
+    sort        : sort,
+    nub         : nub,
+    maybe       : maybe,
+    compare     : compare,
+    compose     : compose,
+    compose1    : compose1,
+    call        : call,
+    id          : id,
+    flip        : flip,
+    cons        : cons,
+    consJoin    : consJoin,
+    replicate   : replicate,
+    negate      : negate,
+    null_       : null_,
+    "null"      : null_,
+    elem        : elem,
+    isSpace     : isSpace,
+    isUpper     : isUpper,
+    isLower     : isLower,
+    isAlpha     : isAlpha,
+    isAlphaNum  : isAlphaNum,
+    isDigit     : isDigit,
+    isHexDigit  : isHexDigit,
+    isOctDigit  : isOctDigit,
+    digitToInt  : digitToInt,
+    range       : range,
+    extend      : extend,
+    namespace   : namespace,
+    toInteger   : toInteger,
+    fromInteger : fromInteger,
+    fromIntegral: fromIntegral
+});
+
 // -------------------------------------------------
 // Algebraic Data Types
 // -------------------------------------------------
 
+
 function Record(){}
-var record = new Record;
+var record = new Record();
 
 
 //this is used for simulating the record syntax
@@ -319,7 +382,7 @@ function getNthKey(obj, nth) {
     for (var key in obj){
         if (obj.hasOwnProperty(key) && i == nth)  
             return key;  
-        i++
+        i++;
     }
     return -1;  
 }
@@ -345,7 +408,7 @@ function adtToString(type){
             acc = acc.join(" ");
         }
         return  this._dataConstructor + " " + acc;
-    }
+    };
 }
 
 ADT.prototype.toString = adtToString();
@@ -358,7 +421,7 @@ function data(type, constr){
         throw "Type constructor has been already defined: '" + type.name + "'";
     type.constructors = constr;
 
-    type.prototype = new ADT;
+    type.prototype = new ADT();
 
     for(var i = 0, l = constr.length; i < l; ++i){
         var single = typeof constr[i] != "object",
@@ -368,7 +431,7 @@ function data(type, constr){
 
         type[name] = single ? value(name)() : value(name, slice(constr[i], 1));
         if(!single)
-            type[name]._length = slice(constr[i], 1).length
+            type[name]._length = slice(constr[i], 1).length;
     }
 
     function value(constr, fields){
@@ -376,7 +439,7 @@ function data(type, constr){
         function create(_isrecord, rec){
             var isrecord = (_isrecord instanceof Record),
                 args = isrecord ? rec : slice(arguments),
-                that = new type,
+                that = new type(),
                 i = 0;
             
             that.constructor = type;
@@ -386,7 +449,7 @@ function data(type, constr){
             that.update = function(newRecords){
                 var obj = {};
                 for(var n in fields[0]){
-                    obj[n] = this[n]
+                    obj[n] = this[n];
                     if(n in newRecords)
                         obj[n] = newRecords[n];
                 }
@@ -408,7 +471,9 @@ function data(type, constr){
 
                         var check = recordDef ? fields[0][recName] : fields[i];
                         if(check.name && !((check == arg.constructor) || (arg instanceof check) ))
-                            throw "Type error: expecting '" + check.name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
+                            throw "Type error: expecting '" + check.name + "' instead of '" + arg.constructor.name +
+                                    "' in the argument '" + (recName || i) + "' of the data constructor '" +
+                                    constr + "' of type '" + type.name + "'";
 
                         that[recName] = that[i] = that[name] = args[name];
                         i++;
@@ -478,10 +543,10 @@ function Maybe(){}
 data(Maybe, [["Just", "a"], "Nothing"]);
 
 function Ordering(){}
-data(Ordering, ["LT", "EQ", "GT"])
+data(Ordering, ["LT", "EQ", "GT"]);
 
 function Either(){}
-data(Either, [["Left", "a"], ["Right", "b"]])
+data(Either, [["Left", "a"], ["Right", "b"]]);
 
 // -------------------------------------------------
 // Operators
@@ -561,7 +626,7 @@ function splice_args(args, i, rec){
         delete args[i]._Op;
         op = args[i];
     }else
-        op = operators[args[i]].func
+        op = operators[args[i]].func;
     
     var item = op(args[i-1], args[i+1]);
     args.splice(i-1, 3 , item);
@@ -586,9 +651,9 @@ function splice_args(args, i, rec){
 function arr(a){ a._Array = true; return a;}
 
 function str(s){ 
-    var str = new String(s);
-    str._String = true;
-    return str;
+    var string = new String(s);
+    string._String = true;
+    return string;
 }
 
 function op(fn){ fn._Op = true; return fn;}
@@ -688,14 +753,31 @@ function cs(){
         lines = null;
         resolved = true;
         return p;
-    }
+    };
 
     line.CallStream = true;
 
     return line;
 }
 
-
+extend(JSParsec, {
+    data      : data,
+    ADT       : ADT,
+    Maybe     : Maybe,
+    Ordering  : Ordering,
+    Either    : Either,
+    operators : operators,
+    infix     : infix,
+    infixl    : infixl,
+    infixr    : infixr,
+    arr       : arr,
+    op        : op,
+    str       : str,
+    resolve   : resolve,
+    recurse   : recurse,
+    Recurse   : Recurse,
+    cs        : cs
+});
 
 // -------------------------------------------------
 // ParseState
@@ -779,7 +861,7 @@ ParseState.prototype = {
 
         var p = this.cache[pid];
         if(!p)
-            p = this.cache[pid] = { };
+            p = this.cache[pid] = {};
 
         p[index] = cached;
     }
@@ -845,13 +927,13 @@ function _fail(expecting){
 function unexpected(name){
     return function(state, scope, k){
         return k(make_result(null, false, {unexpected: scope[name]}));
-    }
+    };
 }
 
 function parserFail(msg){
     return function(state, scope, k){
         return k(make_result(undef, false, msg));
-    }
+    };
 };
 
 var fail = parserFail;
@@ -884,22 +966,22 @@ function trampoline(x){
         x = x.func.apply(null, x.args || []);
 }
 
-var trampolineCount = 0;
 
-function trampolineAsync(x) {
-    trampolineCount++;
+function trampolineAsync(x, count){ //TODO: use while
+    count = count || 0 ;
+    count++;
     
     if(!(x && x.func)){
-        trampolineCount = 0;
+        count = 0;
         return;
     }
 
     x = x.func.apply(null, x.args || []);
     
-    if(trampolineCount % 500 == 0 )
-        setTimeout(function(){ trampoline2(x) }, 1);
+    if(count % 500 == 0 )
+        setTimeout(function(){ trampoline2(x, count) }, 1);
     else
-        trampoline2(x);
+        trampoline2(x, count);
 }
 
 function run(p, strOrState, complete, error, async){
@@ -994,8 +1076,8 @@ function bind(name, p){
                 scope[name] = result.ast;
             return k(result);
         }]};
-    }
-};
+    };
+}
 
 
 function ret(name, more){
@@ -1020,7 +1102,7 @@ function ret(name, more){
             return k(make_result(ast));
 
         }};
-    }
+    };
 }
 
 function resolveBindings(arr, scope){
@@ -1030,10 +1112,10 @@ function resolveBindings(arr, scope){
 }
 
 function withBound(fn){
-    var args = slice(arguments, 1)
+    var args = slice(arguments, 1);
     return function(scope){
         return fn.apply(null, map(function(e){ return scope[e] }, args));
-    }
+    };
 }
 
 var returnCall = compose(ret, withBound);
@@ -1046,7 +1128,7 @@ function setParserState(id){
     return function(state, scope, k){
         state.scrollTo(scope[id]);
         return k(_EmptyOk);
-    }
+    };
 }
 
 //in contrast with Haskell here's no closure in the do_ notation,
@@ -1055,7 +1137,7 @@ function setParserState(id){
 function parserReturn(value){
     return function(state, scope, k){
         return k(make_result(value));
-    }
+    };
 }
 
 var return_ = parserReturn;
@@ -1072,7 +1154,7 @@ function ap(a, b){
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var parsecMap = function(f, p){
+function parsecMap(f, p){
     f = curry(f);
     return function(state, scope, k){
         return {func:p, args:[state, scope, function(result){
@@ -1101,7 +1183,7 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 
-var parserPlus = function(p1, p2){
+function parserPlus(p1, p2){
     function fn(state, scope, k){
         return {func: p1, args:[state, scope, function(result){
             var errors =  [];
@@ -1126,7 +1208,7 @@ var parserPlus = function(p1, p2){
                 {func: p2, args: [state, scope, function(result){
                     handleError(result);
                     return k(result);
-                }]}
+                }]};
         }]};
     }
     fn.constructor = Parser;
@@ -1137,7 +1219,7 @@ var parserPlus = function(p1, p2){
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var parserPlusN = function(p1, p2, p3 /* ... */){
+function parserPlusN(p1, p2, p3 /* ... */){
     var parsers = map(toParser, arguments);
     return function(state, scope, k){
         var i = 1,
@@ -1148,8 +1230,8 @@ var parserPlusN = function(p1, p2, p3 /* ... */){
             result = parserPlus(result, parsers[i]);
 
         return result(state, scope, k);
-    }
-};
+    };
+}
 
 var mplus = parserPlus;
 
@@ -1176,8 +1258,8 @@ function tokens(parsers){
                         ast.push(result.ast);
                     return i < length ? next(parsers[i])(state, scope, k) : k(result);
                 }]};
-            }
-        };
+            };
+        }
 
         return {func:next(parsers[i]), args:[state, scope, function(_result){
             var result = extend({}, _result);
@@ -1186,7 +1268,7 @@ function tokens(parsers){
                 delete result.expecting;                    
             return k(result);
         }]};
-    }
+    };
 }
 
 
@@ -1208,8 +1290,8 @@ function _many(onePlusMatch){
                                 
                         return next(parser)(state, scope, k);
                     }]};
-                }
-            };
+                };
+            }
     
             return {func:next(parser), args:[state, scope, function(_result){
                 var result = extend({}, _result);
@@ -1219,7 +1301,7 @@ function _many(onePlusMatch){
                     delete result.expecting;                    
                 return k(result);
             }]};
-        }
+        };
     };
 }
 
@@ -1228,7 +1310,7 @@ var many = _many(false);
 var many1 = _many(true);
 
 
-//tokenPrim :: (a -> ParseState -> startIndex -> Result) -> (a -> Parser)
+//tokenPrim :: (c -> ParseState -> startIndex -> Result) -> (c -> Parser)
 function tokenPrim(fn){
     return function(c){
         var pid = parser_id++;
@@ -1461,6 +1543,54 @@ extend(operators, {
 });
 
 
+extend(JSParsec, {
+    sequence        : sequence,
+    run             : run,
+    Parser          : Parser,
+    ParseState      : ParseState,
+    ps              : ps, 
+    toParser        : toParser,
+    unexpected      : unexpected,
+    parsecMap       : parsecMap,
+    fmap            : fmap,
+    liftM           : liftM,
+    liftA           : liftA,
+    liftA2          : liftA2,
+    liftA3          : liftA3,
+    ap              : ap,
+    parserBind      : parserBind,
+    parserReturn    : parserReturn,
+    return_         : return_,
+    pure            : pure,
+    parserFail      : parserFail,
+    fail            : fail,
+    parserZero      : parserZero,
+    mzero           : mzero,
+    empty           : empty,
+    parserPlus      : parserPlus,
+    parserPlusN     : parserPlusN,
+    mplus           : mplus,
+    do_             : do_,
+    do2             : do2,
+    bind            : bind,
+    ret             : ret,
+    withBound       : withBound,
+    returnCall      : returnCall,
+    getParserState  : getParserState,
+    setParserState  : setParserState,
+    tokens          : tokens,
+    many            : many,
+    many1           : many1,
+    string          : string,
+    char_           : char_,
+    satisfy         : satisfy,
+    label           : label,
+    try_            : try_,
+    skipMany        : skipMany,
+    match           : match
+});
+
+
 // -------------------------------------------------
 // Char
 // -------------------------------------------------
@@ -1484,7 +1614,7 @@ extend(operators, {
 //oneOf cs            = satisfy (\c -> elem c cs)
 
 var oneOf = function(cs){
-    return label(satisfy(function(c){ return elem(c, cs) }), "oneOf(" + cs + ")");
+	return label(satisfy(function(c){ return elem(c, cs) }), "oneOf(" + cs + ")");
 };
 
 // | As the dual of 'oneOf', @noneOf cs@ succeeds if the current
@@ -1497,7 +1627,7 @@ var oneOf = function(cs){
 //noneOf cs           = satisfy (\c -> not (elem c cs))
 
 var noneOf = function(cs){
-    return label(satisfy(function(c){ return !elem(c, cs) }), "noneOf(" + cs + ")");
+	return label(satisfy(function(c){ return !elem(c, cs) }), "noneOf(" + cs + ")");
 };
 
 
@@ -1627,7 +1757,22 @@ var anyChar = [satisfy, const_(true)].resolve();
 
 // -- defined in Prim
 
-
+extend(JSParsec, {
+    oneOf    : oneOf,
+    noneOf   : noneOf,
+    space    : space,
+    spaces   : spaces,
+    newline  : newline,
+    tab      : tab,
+    upper    : upper,
+    lower    : lower,
+    alphaNum : alphaNum,
+    letter   : letter,
+    digit    : digit,
+    hexDigit : hexDigit,
+    octDigit : octDigit,
+    anyChar  : anyChar
+});
 
 // -------------------------------------------------
 // Combinator
@@ -1990,7 +2135,7 @@ function chainr1(p, op){
                     bind("f", op),
                     bind("y", scan),
                     function(state, scope, k){
-                        return k(make_result(s, "", scope.f(x, scope.y)));
+                        return k(make_result(scope.f(x, scope.y)));
                     }
                 );
         return parserPlus(a, return_(x));
@@ -2016,7 +2161,12 @@ function chainr1(p, op){
 
 function anyToken(state, scope, k){
     var at = state.at(0);
-    return k(at.length ? make_result(state.scroll(1), at, at) : _fail(state));
+    if(at.length){
+        state.scroll(1);
+        return k(make_result(at));
+    }
+    
+    return k(_fail("anyToken"));
 }
 
 
@@ -2032,7 +2182,7 @@ function anyToken(state, scope, k){
 // this works too:
 // var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
 function eof(state, scope, k){
-    return k(make_result(state, "", undef, !state.length, state.length ? "end of input" : undef));
+    return k(make_result(undef, !state.length, state.length ? "end of input" : undef));
 }
 
 //-- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
@@ -2092,7 +2242,7 @@ function manyTill(p, end){
     var scan = parserPlus(
         do_( end, return_([]) ),
         do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
-    )
+    );
 
     return scan;
 }
@@ -2115,6 +2265,33 @@ function lookAhead(p){
         ret("x")
     );
 }
+
+
+extend(JSParsec, {
+    choice        : choice
+  , count         : count
+  , between       : between
+  , option        : option
+  , optionMaybe   : optionMaybe
+  , optional      : optional
+  , skipMany1     : skipMany1
+//, many1         : many1
+  , sepBy         : sepBy
+  , sepBy1        : sepBy1
+  , endBy         : endBy
+  , endBy1        : endBy1
+  , sepEndBy      : sepEndBy
+  , sepEndBy1     : sepEndBy1
+  , chainl        : chainl
+  , chainl1       : chainl1
+  , chainr        : chainr
+  , chainr1       : chainr1
+  , eof           : eof
+  , notFollowedBy : notFollowedBy
+  , manyTill      : manyTill
+  , lookAhead     : lookAhead
+  , anyToken      : anyToken
+});
 
 // -------------------------------------------------
 // Token
@@ -2649,7 +2826,7 @@ function _multiLineComment(st){ return multiLineComment(st) }
 
 var multiLineComment =
         do_( try_ (string (languageDef.commentStart))
-           , inComment)
+           , inComment);
 
 
 //  whiteSpace
@@ -2762,7 +2939,7 @@ var asciiMap        = zip((ascii3codes + ascii2codes), (ascii3 + ascii2));
 //                  where
 //                    parseEsc (c,code)     = do{ char c; return code }
 
-var charEsc         = choice(map(parseEsc, escMap))
+var charEsc         = choice(map(parseEsc, escMap));
                     
 function parseEsc(tuple){
     return do_( char_(tuple[0]), return_(tuple[1]) );
@@ -2773,7 +2950,7 @@ function parseEsc(tuple){
 //                  where
 //                    parseAscii (asc,code) = try (do{ string asc; return code })
 
-var charAscii       = choice(map(parseAscii, asciiMap))
+var charAscii       = choice(map(parseAscii, asciiMap));
 
 function parseAscii(tuple){
     return try_(do_( string(tuple[0]), return_(tuple[1]) ));
@@ -2917,7 +3094,7 @@ function number(base, baseDigit){
     return cs( "digits" ,"<-", many1, baseDigit )
              ( ret, function(scope){
                         return foldl(function(x, d){
-                                  return base * x + toInteger(digitToInt(d))
+                                  return base * x + toInteger(digitToInt(d));
                               }, 0, scope.digits);
              }).resolve();
 }
@@ -2944,13 +3121,15 @@ var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
 //                  where
 //                    op d f    = (f + fromIntegral (digitToInt d))/10.0
 
+function _op(d, f){
+    return (f + fromIntegral(digitToInt(d))) / 10.0;
+}
+
 var fraction        = [ cs( char_('.'))
                           ( "digits" ,"<-", many1, digit ,"<?>", "fraction")
-                          ( ret, function(scope){ return foldr(op, 0.0, scope.digits) })
+                          ( ret, function(scope){ return foldr(_op, 0.0, scope.digits) })
                         ,"<?>", "fraction"].resolve();
-function op(d, f){
-    return (f + fromIntegral(digitToInt(d))) / 10.0
-}
+
 
 
 //
@@ -2975,16 +3154,15 @@ var sign            = [[char_('-') ,">>", return_, negate]
 //                     power e  | e < 0      = 1.0/power(-e)
 //                              | otherwise  = fromInteger (10^e)
 
+function power(e){
+    return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
+}
 
 var exponent_       = [ cs( oneOf, "eE" )
                           ( "f" ,"<-", sign )
                           ( "e" ,"<-", decimal ,"<?>", "exponent" )
                           ( returnCall, power, "f", "e")
                       ,"<?>", "exponent"].resolve();
-
-function power(e){
-    return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
-}
 
 
 
@@ -3144,6 +3322,14 @@ var oper =
          ,"<?>", "operator"].resolve();
 
 
+//  isReservedOp name =
+//      isReserved (sort (reservedOpNames languageDef)) name
+
+function isReservedOp(name){
+        return isReserved( sort( languageDef.reservedOpNames ), name);
+}
+
+
 //  operator =
 //      lexeme $ try $
 //      do{ name <- oper
@@ -3161,32 +3347,12 @@ var operator =
           })].resolve();
 
 
-//
-//  isReservedOp name =
-//      isReserved (sort (reservedOpNames languageDef)) name
 
-function isReservedOp(name){
-        return isReserved( sort( languageDef.reservedOpNames ), name);
-}
 
 
 //  -----------------------------------------------------------
 //  -- Identifiers & Reserved words
 //  -----------------------------------------------------------
-
-
-//  reserved name =
-//      lexeme $ try $
-//      do{ caseString name
-//        ; notFollowedBy (identLetter languageDef) <?> ("end of " ++ show name)
-//        }
-
-function reserved(name){
-    return [lexeme ,"$", try_ ,"$",
-            cs( caseString(name) )
-              ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
-            ].resolve();
-}
 
 
 //  caseString name
@@ -3219,6 +3385,19 @@ function caseString(name){
 
 }
 
+//  reserved name =
+//      lexeme $ try $
+//      do{ caseString name
+//        ; notFollowedBy (identLetter languageDef) <?> ("end of " ++ show name)
+//        }
+
+function reserved(name){
+    return [lexeme ,"$", try_ ,"$",
+            cs( caseString(name) )
+              ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
+            ].resolve();
+}
+
 
 //  ident
 //      = do{ c <- identStart languageDef
@@ -3232,39 +3411,6 @@ var ident
               ( "cs" ,"<-", many, languageDef.identLetter )
               ( returnCall, consJoin, "c", "cs" )
            ,"<?>", "identifier"].resolve();
-
-
-//  identifier =
-//      lexeme $ try $
-//      do{ name <- ident
-//        ; if (isReservedName name)
-//           then unexpected ("reserved word " ++ show name)
-//           else return name
-//        }
-
-var identifier =
-        [lexeme ,"$", try_ ,"$",
-        cs( "name" ,"<-", ident )
-          ( function(state, scope, k){
-                return ( isReservedName(scope.name) ? 
-                            unexpected("reserved word " + scope.name) : 
-                            return_(scope.name)
-                        )(state, scope, k);
-          })].resolve();
-
-
-
-//  isReservedName name
-//      = isReserved theReservedNames caseName
-//      where
-//        caseName      | caseSensitive languageDef  = name
-//                      | otherwise               = map toLower name
-
-function isReservedName(name){
-    var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
-
-    return isReserved(theReservedNames, caseName);
-}
 
 
 //  isReserved names name
@@ -3291,6 +3437,39 @@ function isReserved(names, name){
     return scan(names);
 }
 
+
+//  isReservedName name
+//      = isReserved theReservedNames caseName
+//      where
+//        caseName      | caseSensitive languageDef  = name
+//                      | otherwise               = map toLower name
+
+function isReservedName(name){
+    var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
+
+    return isReserved(theReservedNames, caseName);
+}
+
+
+//  identifier =
+//      lexeme $ try $
+//      do{ name <- ident
+//        ; if (isReservedName name)
+//           then unexpected ("reserved word " ++ show name)
+//           else return name
+//        }
+
+var identifier =
+        [lexeme ,"$", try_ ,"$",
+        cs( "name" ,"<-", ident )
+          ( function(state, scope, k){
+                return ( isReservedName(scope.name) ? 
+                            unexpected("reserved word " + scope.name) : 
+                            return_(scope.name)
+                        )(state, scope, k);
+          })].resolve();
+
+
 //  theReservedNames
 //      | caseSensitive languageDef  = sortedNames
 //      | otherwise               = map (map toLower) sortedNames
@@ -3301,9 +3480,6 @@ var sortedNames = sort(languageDef.reservedNames);
 var theReservedNames = languageDef.caseSensitive ? 
                             sortedNames : 
                             map( function(str){ return str.toLowerCase() }, sortedNames );
-
-
-
 
 
 
@@ -3342,6 +3518,13 @@ var theReservedNames = languageDef.caseSensitive ?
         commaSep1  : commaSep1
     });
 }
+
+
+extend(JSParsec, {
+    GenLanguageDef  : GenLanguageDef,
+    GenTokenParser  : GenTokenParser,
+    makeTokenParser : makeTokenParser
+});
 
 // -------------------------------------------------
 // Language
@@ -3536,7 +3719,7 @@ var haskellDef = haskell98Def.update(
 //haskell :: TokenParser st
 //haskell      = makeTokenParser haskellDef
 
-var haskell = makeTokenParser(haskellDef);
+//var haskell = makeTokenParser(haskellDef);
 
 
 //-----------------------------------------------------------
@@ -3566,6 +3749,19 @@ var mondrianDef = javaStyle.update(
 //mondrian :: TokenParser st
 //mondrian    = makeTokenParser mondrianDef
 
-var mondrian = makeTokenParser(mondrianDef);
+//var mondrian = makeTokenParser(mondrianDef);
 
 
+
+extend(JSParsec, {
+    emptyDef    : emptyDef,
+    haskellStyle: haskellStyle,
+    javaStyle   : javaStyle,
+    haskellDef  : haskellDef,
+    mondrianDef : mondrianDef,
+    getHaskell  : function(){ return makeTokenParser(haskellDef)  },
+    getMondrian : function(){ return makeTokenParser(mondrianDef) }
+});
+
+
+})();

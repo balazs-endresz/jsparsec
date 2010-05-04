@@ -191,7 +191,7 @@ var haskellDef = haskell98Def.update(
 //haskell :: TokenParser st
 //haskell      = makeTokenParser haskellDef
 
-var haskell = makeTokenParser(haskellDef);
+//var haskell = makeTokenParser(haskellDef);
 
 
 //-----------------------------------------------------------
@@ -221,4 +221,16 @@ var mondrianDef = javaStyle.update(
 //mondrian :: TokenParser st
 //mondrian    = makeTokenParser mondrianDef
 
-var mondrian = makeTokenParser(mondrianDef);
+//var mondrian = makeTokenParser(mondrianDef);
+
+
+
+extend(JSParsec, {
+    emptyDef    : emptyDef,
+    haskellStyle: haskellStyle,
+    javaStyle   : javaStyle,
+    haskellDef  : haskellDef,
+    mondrianDef : mondrianDef,
+    getHaskell  : function(){ return makeTokenParser(haskellDef)  },
+    getMondrian : function(){ return makeTokenParser(mondrianDef) }
+});

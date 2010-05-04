@@ -359,7 +359,7 @@ function chainr1(p, op){
                     bind("f", op),
                     bind("y", scan),
                     function(state, scope, k){
-                        return k(make_result(s, "", scope.f(x, scope.y)));
+                        return k(make_result(scope.f(x, scope.y)));
                     }
                 );
         return parserPlus(a, return_(x));
@@ -385,7 +385,12 @@ function chainr1(p, op){
 
 function anyToken(state, scope, k){
     var at = state.at(0);
-    return k(at.length ? make_result(state.scroll(1), at, at) : _fail(state));
+    if(at.length){
+        state.scroll(1);
+        return k(make_result(at));
+    }
+    
+    return k(_fail("anyToken"));
 }
 
 
@@ -401,7 +406,7 @@ function anyToken(state, scope, k){
 // this works too:
 // var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
 function eof(state, scope, k){
-    return k(make_result(state, "", undef, !state.length, state.length ? "end of input" : undef));
+    return k(make_result(undef, !state.length, state.length ? "end of input" : undef));
 }
 
 //-- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
@@ -461,7 +466,7 @@ function manyTill(p, end){
     var scan = parserPlus(
         do_( end, return_([]) ),
         do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
-    )
+    );
 
     return scan;
 }
@@ -484,3 +489,30 @@ function lookAhead(p){
         ret("x")
     );
 }
+
+
+extend(JSParsec, {
+    choice        : choice
+  , count         : count
+  , between       : between
+  , option        : option
+  , optionMaybe   : optionMaybe
+  , optional      : optional
+  , skipMany1     : skipMany1
+//, many1         : many1
+  , sepBy         : sepBy
+  , sepBy1        : sepBy1
+  , endBy         : endBy
+  , endBy1        : endBy1
+  , sepEndBy      : sepEndBy
+  , sepEndBy1     : sepEndBy1
+  , chainl        : chainl
+  , chainl1       : chainl1
+  , chainr        : chainr
+  , chainr1       : chainr1
+  , eof           : eof
+  , notFollowedBy : notFollowedBy
+  , manyTill      : manyTill
+  , lookAhead     : lookAhead
+  , anyToken      : anyToken
+});

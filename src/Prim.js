@@ -80,7 +80,7 @@ ParseState.prototype = {
 
         var p = this.cache[pid];
         if(!p)
-            p = this.cache[pid] = { };
+            p = this.cache[pid] = {};
 
         p[index] = cached;
     }
@@ -146,13 +146,13 @@ function _fail(expecting){
 function unexpected(name){
     return function(state, scope, k){
         return k(make_result(null, false, {unexpected: scope[name]}));
-    }
+    };
 }
 
 function parserFail(msg){
     return function(state, scope, k){
         return k(make_result(undef, false, msg));
-    }
+    };
 };
 
 var fail = parserFail;
@@ -185,22 +185,22 @@ function trampoline(x){
         x = x.func.apply(null, x.args || []);
 }
 
-var trampolineCount = 0;
 
-function trampolineAsync(x) {
-    trampolineCount++;
+function trampolineAsync(x, count){ //TODO: use while
+    count = count || 0 ;
+    count++;
     
     if(!(x && x.func)){
-        trampolineCount = 0;
+        count = 0;
         return;
     }
 
     x = x.func.apply(null, x.args || []);
     
-    if(trampolineCount % 500 == 0 )
-        setTimeout(function(){ trampoline2(x) }, 1);
+    if(count % 500 == 0 )
+        setTimeout(function(){ trampoline2(x, count) }, 1);
     else
-        trampoline2(x);
+        trampoline2(x, count);
 }
 
 function run(p, strOrState, complete, error, async){
@@ -295,8 +295,8 @@ function bind(name, p){
                 scope[name] = result.ast;
             return k(result);
         }]};
-    }
-};
+    };
+}
 
 
 function ret(name, more){
@@ -321,7 +321,7 @@ function ret(name, more){
             return k(make_result(ast));
 
         }};
-    }
+    };
 }
 
 function resolveBindings(arr, scope){
@@ -331,10 +331,10 @@ function resolveBindings(arr, scope){
 }
 
 function withBound(fn){
-    var args = slice(arguments, 1)
+    var args = slice(arguments, 1);
     return function(scope){
         return fn.apply(null, map(function(e){ return scope[e] }, args));
-    }
+    };
 }
 
 var returnCall = compose(ret, withBound);
@@ -347,7 +347,7 @@ function setParserState(id){
     return function(state, scope, k){
         state.scrollTo(scope[id]);
         return k(_EmptyOk);
-    }
+    };
 }
 
 //in contrast with Haskell here's no closure in the do_ notation,
@@ -356,7 +356,7 @@ function setParserState(id){
 function parserReturn(value){
     return function(state, scope, k){
         return k(make_result(value));
-    }
+    };
 }
 
 var return_ = parserReturn;
@@ -373,7 +373,7 @@ function ap(a, b){
 // Parser combinator that passes the AST generated from the parser 'p' 
 // to the function 'f'. The result of 'f' is used as the AST in the result.
 // the function 'f' will be curried automatically
-var parsecMap = function(f, p){
+function parsecMap(f, p){
     f = curry(f);
     return function(state, scope, k){
         return {func:p, args:[state, scope, function(result){
@@ -402,7 +402,7 @@ function skip_snd(p1, p2){ return do_(bind("a", p1), p2, ret("a")) }
 
 
 
-var parserPlus = function(p1, p2){
+function parserPlus(p1, p2){
     function fn(state, scope, k){
         return {func: p1, args:[state, scope, function(result){
             var errors =  [];
@@ -427,7 +427,7 @@ var parserPlus = function(p1, p2){
                 {func: p2, args: [state, scope, function(result){
                     handleError(result);
                     return k(result);
-                }]}
+                }]};
         }]};
     }
     fn.constructor = Parser;
@@ -438,7 +438,7 @@ var parserPlus = function(p1, p2){
 // It takes any number of parsers as arguments and returns a parser that will try
 // each of the given parsers in order. The first one that matches some string 
 // results in a successfull parse. It fails if all parsers fail.
-var parserPlusN = function(p1, p2, p3 /* ... */){
+function parserPlusN(p1, p2, p3 /* ... */){
     var parsers = map(toParser, arguments);
     return function(state, scope, k){
         var i = 1,
@@ -449,8 +449,8 @@ var parserPlusN = function(p1, p2, p3 /* ... */){
             result = parserPlus(result, parsers[i]);
 
         return result(state, scope, k);
-    }
-};
+    };
+}
 
 var mplus = parserPlus;
 
@@ -477,8 +477,8 @@ function tokens(parsers){
                         ast.push(result.ast);
                     return i < length ? next(parsers[i])(state, scope, k) : k(result);
                 }]};
-            }
-        };
+            };
+        }
 
         return {func:next(parsers[i]), args:[state, scope, function(_result){
             var result = extend({}, _result);
@@ -487,7 +487,7 @@ function tokens(parsers){
                 delete result.expecting;                    
             return k(result);
         }]};
-    }
+    };
 }
 
 
@@ -509,8 +509,8 @@ function _many(onePlusMatch){
                                 
                         return next(parser)(state, scope, k);
                     }]};
-                }
-            };
+                };
+            }
     
             return {func:next(parser), args:[state, scope, function(_result){
                 var result = extend({}, _result);
@@ -520,7 +520,7 @@ function _many(onePlusMatch){
                     delete result.expecting;                    
                 return k(result);
             }]};
-        }
+        };
     };
 }
 
@@ -529,7 +529,7 @@ var many = _many(false);
 var many1 = _many(true);
 
 
-//tokenPrim :: (a -> ParseState -> startIndex -> Result) -> (a -> Parser)
+//tokenPrim :: (c -> ParseState -> startIndex -> Result) -> (c -> Parser)
 function tokenPrim(fn){
     return function(c){
         var pid = parser_id++;
@@ -759,4 +759,52 @@ extend(operators, {
         fixity: infix(0)
         //,type:    [Parser, String, Parser]
     }   
+});
+
+
+extend(JSParsec, {
+    sequence        : sequence,
+    run             : run,
+    Parser          : Parser,
+    ParseState      : ParseState,
+    ps              : ps, 
+    toParser        : toParser,
+    unexpected      : unexpected,
+    parsecMap       : parsecMap,
+    fmap            : fmap,
+    liftM           : liftM,
+    liftA           : liftA,
+    liftA2          : liftA2,
+    liftA3          : liftA3,
+    ap              : ap,
+    parserBind      : parserBind,
+    parserReturn    : parserReturn,
+    return_         : return_,
+    pure            : pure,
+    parserFail      : parserFail,
+    fail            : fail,
+    parserZero      : parserZero,
+    mzero           : mzero,
+    empty           : empty,
+    parserPlus      : parserPlus,
+    parserPlusN     : parserPlusN,
+    mplus           : mplus,
+    do_             : do_,
+    do2             : do2,
+    bind            : bind,
+    ret             : ret,
+    withBound       : withBound,
+    returnCall      : returnCall,
+    getParserState  : getParserState,
+    setParserState  : setParserState,
+    tokens          : tokens,
+    many            : many,
+    many1           : many1,
+    string          : string,
+    char_           : char_,
+    satisfy         : satisfy,
+    label           : label,
+    try_            : try_,
+    skipMany        : skipMany,
+    match           : match
 });

@@ -20,7 +20,7 @@ function curry(fn){
 var id = function(x){ return x };
 
 //var const_ = curry(function(x, _){ return x });
-function const_(x){ return function(_){ return x } };
+function const_(x){ return function(_){ return x } }
 
 var call = curry(function(a, b){ return a(b) });
 
@@ -165,7 +165,7 @@ function maybe(n, f, m){
 function compare(x, y){
     return x === y ? Ordering.EQ : 
            x <=  y ? Ordering.LT :
-                     Ordering.GT
+                     Ordering.GT;
 }
 
 
@@ -220,16 +220,16 @@ function replicate(n, x){
 
 function negate(a){
     return -a;
-};
+}
 
 //returns True if a list is empty, otherwise False
 function null_(a){
     return !a.length;
-};
+}
 
 
 function elem(x, xs){
-    return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1
+    return (xs.indexOf ? xs.indexOf(x) : indexOf(xs, x)) != -1;
 }
 
 function isSpace(c){
@@ -278,3 +278,64 @@ function range(lower, upper){
         toString: function(){ return "range(" + lower + ", " + upper + ")" }
     };
 }
+
+function namespace(){
+    var o, d;
+    map(function(v) {
+        d = v.split(".");
+        o = window[d[0]] = window[d[0]] || {};
+        map(function(v2){
+            o = o[v2] = o[v2] || {};
+        }, d.slice(1));
+    }, arguments);
+    return o;
+}
+
+var JSParsec = window.JSParsec = {};
+
+extend(JSParsec, {
+    curry       : curry,
+    const_      : const_,
+    "const"     : const_,
+    isArray     : isArray,
+    isDefined   : isDefined,
+    slice       : slice,
+    foldl       : foldl,
+    foldr       : foldr,
+    map         : map,
+    filter      : filter,
+    indexOf     : indexOf,
+    lastIndexOf : lastIndexOf,
+    zip         : zip,
+    sort        : sort,
+    nub         : nub,
+    maybe       : maybe,
+    compare     : compare,
+    compose     : compose,
+    compose1    : compose1,
+    call        : call,
+    id          : id,
+    flip        : flip,
+    cons        : cons,
+    consJoin    : consJoin,
+    replicate   : replicate,
+    negate      : negate,
+    null_       : null_,
+    "null"      : null_,
+    elem        : elem,
+    isSpace     : isSpace,
+    isUpper     : isUpper,
+    isLower     : isLower,
+    isAlpha     : isAlpha,
+    isAlphaNum  : isAlphaNum,
+    isDigit     : isDigit,
+    isHexDigit  : isHexDigit,
+    isOctDigit  : isOctDigit,
+    digitToInt  : digitToInt,
+    range       : range,
+    extend      : extend,
+    namespace   : namespace,
+    toInteger   : toInteger,
+    fromInteger : fromInteger,
+    fromIntegral: fromIntegral
+});
