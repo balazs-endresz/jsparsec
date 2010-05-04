@@ -36,7 +36,7 @@
 //
 
 function choice(ps){
-	return foldr(parserPlus, mzero, ps);
+    return foldr(parserPlus, mzero, ps);
 }
 
 
@@ -53,7 +53,7 @@ function choice(ps){
 //
 
 function option(x, p){
-	return parserPlus(p, return_(x));
+    return parserPlus(p, return_(x));
 }
 
 
@@ -66,7 +66,7 @@ function option(x, p){
 //
 
 function optionMaybe(p){
-	return option(Maybe.Nothing, liftM(Maybe.Just, p));
+    return option(Maybe.Nothing, liftM(Maybe.Just, p));
 }
 
 
@@ -79,7 +79,7 @@ function optionMaybe(p){
 //
 
 function optional(p){
-	return parserPlus(do_(p, return_(null)), return_(null));
+    return parserPlus(do_(p, return_(null)), return_(null));
 }
 
 
@@ -95,7 +95,7 @@ function optional(p){
 //
 
 var between = curry(function(open, close, p){
-	return do_(open, bind("x", p), close, ret("x"));
+    return do_(open, bind("x", p), close, ret("x"));
 });
 
 
@@ -112,7 +112,7 @@ var between = curry(function(open, close, p){
 //
 
 function skipMany1(p){
-	return do_(p, skipMany(p));
+    return do_(p, skipMany(p));
 }
 
 //-- | @many p@ applies the parser @p@ /one/ or more times. Returns a
@@ -146,7 +146,7 @@ function skipMany1(p){
 //
 
 function sepBy(p, sep){
-	return parserPlus(sepBy1(p, sep), return_([]));
+    return parserPlus(sepBy1(p, sep), return_([]));
 }
 
 
@@ -162,11 +162,11 @@ function sepBy(p, sep){
 //
 
 function sepBy1(p, sep){
-	return do_(
-		bind("x", p),
-		bind("xs", many( do_(sep, p) ) ),
-		returnCall(cons, "x", "xs")
-	);
+    return do_(
+        bind("x", p),
+        bind("xs", many( do_(sep, p) ) ),
+        returnCall(cons, "x", "xs")
+    );
 }
 
 
@@ -185,19 +185,19 @@ function sepBy1(p, sep){
 //
 
 function sepEndBy1(p, sep){
-	return do_(
-		bind("x", p),
-		parserPlus(
-			do_(
-				sep,
-				//bind("xs", sepEndBy(p, sep)),
-				//thanks to eager evaluation this doesn't terminate without eta-expansion
-				bind("xs", function(state){ return sepEndBy(p, sep)(state) }),
-				ret(function(scope){ return cons(scope.scope.x, scope.xs) })
-			),
-			ret(function(scope){ return [scope.x] })
-		)
-	);
+    return do_(
+        bind("x", p),
+        parserPlus(
+            do_(
+                sep,
+                //bind("xs", sepEndBy(p, sep)),
+                //thanks to eager evaluation this doesn't terminate without eta-expansion
+                bind("xs", function(state, scope, k){ return sepEndBy(p, sep)(state, scope, k) }),
+                ret(function(scope){ return cons(scope.scope.x, scope.xs) })
+            ),
+            ret(function(scope){ return [scope.x] })
+        )
+    );
 }
 
 //-- | @sepEndBy p sep@ parses /zero/ or more occurrences of @p@,
@@ -212,7 +212,7 @@ function sepEndBy1(p, sep){
 //
 
 function sepEndBy(p, sep){
-	return parserPlus(sepEndBy1(p, sep), return_([]));
+    return parserPlus(sepEndBy1(p, sep), return_([]));
 }
 
 //-- | @endBy1 p sep@ parses /one/ or more occurrences of @p@, seperated
@@ -223,7 +223,7 @@ function sepEndBy(p, sep){
 //
 
 function endBy1(p, sep){
-	return many1(do_( bind("x", p),  sep, ret("x") ));
+    return many1(do_( bind("x", p),  sep, ret("x") ));
 }
 
 
@@ -237,7 +237,7 @@ function endBy1(p, sep){
 //
 
 function endBy(p, sep){
-	return many(do_( bind("x", p),  sep, ret("x") ));
+    return many(do_( bind("x", p),  sep, ret("x") ));
 }
 
 
@@ -251,7 +251,7 @@ function endBy(p, sep){
 //
 
 function count(n, p){
-	return (n <= 0) ? return_([]) : sequence(replicate(n, p));
+    return (n <= 0) ? return_([]) : sequence(replicate(n, p));
 }
 
 //-- | @chainr p op x@ parser /zero/ or more occurrences of @p@,
@@ -265,7 +265,7 @@ function count(n, p){
 //
 
 function chainr(p, op, x){
-	return parserPlus(chainr1(p, op), return_(x));
+    return parserPlus(chainr1(p, op), return_(x));
 }
 
 
@@ -280,7 +280,7 @@ function chainr(p, op, x){
 //
 
 function chainl(p, op, x){
-	return parserPlus(chainl1(p, op), return_(x));
+    return parserPlus(chainl1(p, op), return_(x));
 }
 
 
@@ -311,23 +311,23 @@ function chainl(p, op, x){
 //
 
 function chainl1(p, op){
-	var scan =	do_( 
-					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
-				);
+    var scan =  do_( 
+                    bind("x", p), 
+                    function(state, scope, k){ return rest(scope.x)(state, scope, k) }
+                );
 
-	function rest(x){ 
-		var a = do_(
-					bind("f", op),
-					bind("y", p),
-					function(state, scope){
-						return rest(scope.f(x, scope.y))(state, scope)
-					}
-				);
-		return parserPlus(a, return_(x));
-	}
+    function rest(x){ 
+        var a = do_(
+                    bind("f", op),
+                    bind("y", p),
+                    function(state, scope, k){
+                        return rest(scope.f(x, scope.y))(state, scope, k);
+                    }
+                );
+        return parserPlus(a, return_(x));
+    }
 
-	return scan;
+    return scan;
 }
 
 
@@ -349,23 +349,23 @@ function chainl1(p, op){
 //
 
 function chainr1(p, op){
-	var scan =	do_( 
-					bind("x", p), 
-					function(state, scope){ return rest(scope.x)(state) }
-				);
+    var scan =  do_( 
+                    bind("x", p), 
+                    function(state, scope, k){ return rest(scope.x)(state, scope, k) }
+                );
 
-	function rest(x){ 
-		var a = do_(
-					bind("f", op),
-					bind("y", scan),
-					function(state, scope){
-						return make_result(s, "", scope.f(x, scope.y))
-					}
-				);
-		return parserPlus(a, return_(x));
-	}
+    function rest(x){ 
+        var a = do_(
+                    bind("f", op),
+                    bind("y", scan),
+                    function(state, scope, k){
+                        return k(make_result(scope.f(x, scope.y)));
+                    }
+                );
+        return parserPlus(a, return_(x));
+    }
 
-	return scan;
+    return scan;
 }
 
 
@@ -383,9 +383,14 @@ function chainr1(p, op){
 //anyToken            = tokenPrim show (\pos _tok _toks -> pos) Just
 //
 
-function anyToken(state){
-	var at = state.at(0);
-	return at.length ? make_result(state.scroll(1), at, at) : _fail(state);
+function anyToken(state, scope, k){
+    var at = state.at(0);
+    if(at.length){
+        state.scroll(1);
+        return k(make_result(at));
+    }
+    
+    return k(_fail("anyToken"));
 }
 
 
@@ -400,8 +405,8 @@ function anyToken(state){
 
 // this works too:
 // var eof = [notFollowedBy, anyToken ,"<?>", "end of input"].resolve();
-function eof(state){
-    return make_result(state, "", undef, !state.length, state.length ? "end of input" : undef);
+function eof(state, scope, k){
+    return k(make_result(undef, !state.length, state.length ? "end of input" : undef));
 }
 
 //-- | @notFollowedBy p@ only succeeds when parser @p@ fails. This parser
@@ -423,15 +428,15 @@ function eof(state){
 //
 
 function notFollowedBy(p){
-	return try_(
-		parserPlus(
-			do_(
-				bind("c", try_(p)),
-				unexpected("c")
-			),
-			return_(null)
-		)
-	);
+    return try_(
+        parserPlus(
+            do_(
+                bind("c", try_(p)),
+                unexpected("c")
+            ),
+            return_(null)
+        )
+    );
 }
 
 
@@ -456,14 +461,14 @@ function notFollowedBy(p){
 
 function manyTill(p, end){
 
-	function _scan(state){ return scan(state) }
+    function _scan(state, scope, k){ return scan(state, scope, k) }
 
-	var scan = parserPlus(
-		do_( end, return_([]) ),
-		do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
-	)
+    var scan = parserPlus(
+        do_( end, return_([]) ),
+        do_( bind("x", p), bind("xs", _scan), returnCall(cons, "x", "xs") )
+    );
 
-	return scan;
+    return scan;
 }
 
 
@@ -477,10 +482,37 @@ function manyTill(p, end){
 //                        }
 
 function lookAhead(p){
-	return do_(
-		bind("state", getParserState),
-		bind("x", p),
-		setParserState("state"),
-		ret("x")
-	);
+    return do_(
+        bind("state", getParserState),
+        bind("x", p),
+        setParserState("state"),
+        ret("x")
+    );
 }
+
+
+extend(JSParsec, {
+    choice        : choice
+  , count         : count
+  , between       : between
+  , option        : option
+  , optionMaybe   : optionMaybe
+  , optional      : optional
+  , skipMany1     : skipMany1
+//, many1         : many1
+  , sepBy         : sepBy
+  , sepBy1        : sepBy1
+  , endBy         : endBy
+  , endBy1        : endBy1
+  , sepEndBy      : sepEndBy
+  , sepEndBy1     : sepEndBy1
+  , chainl        : chainl
+  , chainl1       : chainl1
+  , chainr        : chainr
+  , chainr1       : chainr1
+  , eof           : eof
+  , notFollowedBy : notFollowedBy
+  , manyTill      : manyTill
+  , lookAhead     : lookAhead
+  , anyToken      : anyToken
+});
