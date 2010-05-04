@@ -1,4 +1,4 @@
-/*! 
+/** @license
  * JSParsec - A parser combinator library for JavaScript
  * 
  * Version: 0.0.5

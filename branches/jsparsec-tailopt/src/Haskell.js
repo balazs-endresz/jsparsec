@@ -2,8 +2,9 @@
 // Algebraic Data Types
 // -------------------------------------------------
 
+
 function Record(){}
-var record = new Record;
+var record = new Record();
 
 
 //this is used for simulating the record syntax
@@ -19,7 +20,7 @@ function getNthKey(obj, nth) {
     for (var key in obj){
         if (obj.hasOwnProperty(key) && i == nth)  
             return key;  
-        i++
+        i++;
     }
     return -1;  
 }
@@ -45,7 +46,7 @@ function adtToString(type){
             acc = acc.join(" ");
         }
         return  this._dataConstructor + " " + acc;
-    }
+    };
 }
 
 ADT.prototype.toString = adtToString();
@@ -58,7 +59,7 @@ function data(type, constr){
         throw "Type constructor has been already defined: '" + type.name + "'";
     type.constructors = constr;
 
-    type.prototype = new ADT;
+    type.prototype = new ADT();
 
     for(var i = 0, l = constr.length; i < l; ++i){
         var single = typeof constr[i] != "object",
@@ -68,7 +69,7 @@ function data(type, constr){
 
         type[name] = single ? value(name)() : value(name, slice(constr[i], 1));
         if(!single)
-            type[name]._length = slice(constr[i], 1).length
+            type[name]._length = slice(constr[i], 1).length;
     }
 
     function value(constr, fields){
@@ -76,7 +77,7 @@ function data(type, constr){
         function create(_isrecord, rec){
             var isrecord = (_isrecord instanceof Record),
                 args = isrecord ? rec : slice(arguments),
-                that = new type,
+                that = new type(),
                 i = 0;
             
             that.constructor = type;
@@ -86,7 +87,7 @@ function data(type, constr){
             that.update = function(newRecords){
                 var obj = {};
                 for(var n in fields[0]){
-                    obj[n] = this[n]
+                    obj[n] = this[n];
                     if(n in newRecords)
                         obj[n] = newRecords[n];
                 }
@@ -108,7 +109,9 @@ function data(type, constr){
 
                         var check = recordDef ? fields[0][recName] : fields[i];
                         if(check.name && !((check == arg.constructor) || (arg instanceof check) ))
-                            throw "Type error: expecting '" + check.name + "' instead of '" + arg.constructor.name +"' in the argument '" + (recName || i) + "' of the data constructor '" + constr + "' of type '" + type.name +"'"
+                            throw "Type error: expecting '" + check.name + "' instead of '" + arg.constructor.name +
+                                    "' in the argument '" + (recName || i) + "' of the data constructor '" +
+                                    constr + "' of type '" + type.name + "'";
 
                         that[recName] = that[i] = that[name] = args[name];
                         i++;
@@ -178,10 +181,10 @@ function Maybe(){}
 data(Maybe, [["Just", "a"], "Nothing"]);
 
 function Ordering(){}
-data(Ordering, ["LT", "EQ", "GT"])
+data(Ordering, ["LT", "EQ", "GT"]);
 
 function Either(){}
-data(Either, [["Left", "a"], ["Right", "b"]])
+data(Either, [["Left", "a"], ["Right", "b"]]);
 
 // -------------------------------------------------
 // Operators
@@ -261,7 +264,7 @@ function splice_args(args, i, rec){
         delete args[i]._Op;
         op = args[i];
     }else
-        op = operators[args[i]].func
+        op = operators[args[i]].func;
     
     var item = op(args[i-1], args[i+1]);
     args.splice(i-1, 3 , item);
@@ -286,9 +289,9 @@ function splice_args(args, i, rec){
 function arr(a){ a._Array = true; return a;}
 
 function str(s){ 
-    var str = new String(s);
-    str._String = true;
-    return str;
+    var string = new String(s);
+    string._String = true;
+    return string;
 }
 
 function op(fn){ fn._Op = true; return fn;}
@@ -388,10 +391,28 @@ function cs(){
         lines = null;
         resolved = true;
         return p;
-    }
+    };
 
     line.CallStream = true;
 
     return line;
 }
 
+extend(JSParsec, {
+    data      : data,
+    ADT       : ADT,
+    Maybe     : Maybe,
+    Ordering  : Ordering,
+    Either    : Either,
+    operators : operators,
+    infix     : infix,
+    infixl    : infixl,
+    infixr    : infixr,
+    arr       : arr,
+    op        : op,
+    str       : str,
+    resolve   : resolve,
+    recurse   : recurse,
+    Recurse   : Recurse,
+    cs        : cs
+});

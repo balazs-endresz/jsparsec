@@ -531,7 +531,7 @@ function _multiLineComment(st){ return multiLineComment(st) }
 
 var multiLineComment =
         do_( try_ (string (languageDef.commentStart))
-           , inComment)
+           , inComment);
 
 
 //  whiteSpace
@@ -644,7 +644,7 @@ var asciiMap        = zip((ascii3codes + ascii2codes), (ascii3 + ascii2));
 //                  where
 //                    parseEsc (c,code)     = do{ char c; return code }
 
-var charEsc         = choice(map(parseEsc, escMap))
+var charEsc         = choice(map(parseEsc, escMap));
                     
 function parseEsc(tuple){
     return do_( char_(tuple[0]), return_(tuple[1]) );
@@ -655,7 +655,7 @@ function parseEsc(tuple){
 //                  where
 //                    parseAscii (asc,code) = try (do{ string asc; return code })
 
-var charAscii       = choice(map(parseAscii, asciiMap))
+var charAscii       = choice(map(parseAscii, asciiMap));
 
 function parseAscii(tuple){
     return try_(do_( string(tuple[0]), return_(tuple[1]) ));
@@ -799,7 +799,7 @@ function number(base, baseDigit){
     return cs( "digits" ,"<-", many1, baseDigit )
              ( ret, function(scope){
                         return foldl(function(x, d){
-                                  return base * x + toInteger(digitToInt(d))
+                                  return base * x + toInteger(digitToInt(d));
                               }, 0, scope.digits);
              }).resolve();
 }
@@ -826,13 +826,15 @@ var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
 //                  where
 //                    op d f    = (f + fromIntegral (digitToInt d))/10.0
 
+function _op(d, f){
+    return (f + fromIntegral(digitToInt(d))) / 10.0;
+}
+
 var fraction        = [ cs( char_('.'))
                           ( "digits" ,"<-", many1, digit ,"<?>", "fraction")
-                          ( ret, function(scope){ return foldr(op, 0.0, scope.digits) })
+                          ( ret, function(scope){ return foldr(_op, 0.0, scope.digits) })
                         ,"<?>", "fraction"].resolve();
-function op(d, f){
-    return (f + fromIntegral(digitToInt(d))) / 10.0
-}
+
 
 
 //
@@ -857,16 +859,15 @@ var sign            = [[char_('-') ,">>", return_, negate]
 //                     power e  | e < 0      = 1.0/power(-e)
 //                              | otherwise  = fromInteger (10^e)
 
+function power(e){
+    return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
+}
 
 var exponent_       = [ cs( oneOf, "eE" )
                           ( "f" ,"<-", sign )
                           ( "e" ,"<-", decimal ,"<?>", "exponent" )
                           ( returnCall, power, "f", "e")
                       ,"<?>", "exponent"].resolve();
-
-function power(e){
-    return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
-}
 
 
 
@@ -1026,6 +1027,14 @@ var oper =
          ,"<?>", "operator"].resolve();
 
 
+//  isReservedOp name =
+//      isReserved (sort (reservedOpNames languageDef)) name
+
+function isReservedOp(name){
+        return isReserved( sort( languageDef.reservedOpNames ), name);
+}
+
+
 //  operator =
 //      lexeme $ try $
 //      do{ name <- oper
@@ -1043,32 +1052,12 @@ var operator =
           })].resolve();
 
 
-//
-//  isReservedOp name =
-//      isReserved (sort (reservedOpNames languageDef)) name
 
-function isReservedOp(name){
-        return isReserved( sort( languageDef.reservedOpNames ), name);
-}
 
 
 //  -----------------------------------------------------------
 //  -- Identifiers & Reserved words
 //  -----------------------------------------------------------
-
-
-//  reserved name =
-//      lexeme $ try $
-//      do{ caseString name
-//        ; notFollowedBy (identLetter languageDef) <?> ("end of " ++ show name)
-//        }
-
-function reserved(name){
-    return [lexeme ,"$", try_ ,"$",
-            cs( caseString(name) )
-              ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
-            ].resolve();
-}
 
 
 //  caseString name
@@ -1101,6 +1090,19 @@ function caseString(name){
 
 }
 
+//  reserved name =
+//      lexeme $ try $
+//      do{ caseString name
+//        ; notFollowedBy (identLetter languageDef) <?> ("end of " ++ show name)
+//        }
+
+function reserved(name){
+    return [lexeme ,"$", try_ ,"$",
+            cs( caseString(name) )
+              ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
+            ].resolve();
+}
+
 
 //  ident
 //      = do{ c <- identStart languageDef
@@ -1114,39 +1116,6 @@ var ident
               ( "cs" ,"<-", many, languageDef.identLetter )
               ( returnCall, consJoin, "c", "cs" )
            ,"<?>", "identifier"].resolve();
-
-
-//  identifier =
-//      lexeme $ try $
-//      do{ name <- ident
-//        ; if (isReservedName name)
-//           then unexpected ("reserved word " ++ show name)
-//           else return name
-//        }
-
-var identifier =
-        [lexeme ,"$", try_ ,"$",
-        cs( "name" ,"<-", ident )
-          ( function(state, scope, k){
-                return ( isReservedName(scope.name) ? 
-                            unexpected("reserved word " + scope.name) : 
-                            return_(scope.name)
-                        )(state, scope, k);
-          })].resolve();
-
-
-
-//  isReservedName name
-//      = isReserved theReservedNames caseName
-//      where
-//        caseName      | caseSensitive languageDef  = name
-//                      | otherwise               = map toLower name
-
-function isReservedName(name){
-    var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
-
-    return isReserved(theReservedNames, caseName);
-}
 
 
 //  isReserved names name
@@ -1173,6 +1142,39 @@ function isReserved(names, name){
     return scan(names);
 }
 
+
+//  isReservedName name
+//      = isReserved theReservedNames caseName
+//      where
+//        caseName      | caseSensitive languageDef  = name
+//                      | otherwise               = map toLower name
+
+function isReservedName(name){
+    var caseName = languageDef.caseSensitive ? name : name.toLowerCase();
+
+    return isReserved(theReservedNames, caseName);
+}
+
+
+//  identifier =
+//      lexeme $ try $
+//      do{ name <- ident
+//        ; if (isReservedName name)
+//           then unexpected ("reserved word " ++ show name)
+//           else return name
+//        }
+
+var identifier =
+        [lexeme ,"$", try_ ,"$",
+        cs( "name" ,"<-", ident )
+          ( function(state, scope, k){
+                return ( isReservedName(scope.name) ? 
+                            unexpected("reserved word " + scope.name) : 
+                            return_(scope.name)
+                        )(state, scope, k);
+          })].resolve();
+
+
 //  theReservedNames
 //      | caseSensitive languageDef  = sortedNames
 //      | otherwise               = map (map toLower) sortedNames
@@ -1183,9 +1185,6 @@ var sortedNames = sort(languageDef.reservedNames);
 var theReservedNames = languageDef.caseSensitive ? 
                             sortedNames : 
                             map( function(str){ return str.toLowerCase() }, sortedNames );
-
-
-
 
 
 
@@ -1224,3 +1223,10 @@ var theReservedNames = languageDef.caseSensitive ?
         commaSep1  : commaSep1
     });
 }
+
+
+extend(JSParsec, {
+    GenLanguageDef  : GenLanguageDef,
+    GenTokenParser  : GenTokenParser,
+    makeTokenParser : makeTokenParser
+});

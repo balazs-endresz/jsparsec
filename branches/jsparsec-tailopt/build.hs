@@ -6,8 +6,9 @@ import System.FilePath ((</>))
 main =
   do
     let paths = "license.txt" : map ("src" </>) files
-    contents <- mapM readFile paths
-    writeFile "jsparsec.js" $ concat $ map (++ "\r\n\r\n") contents 
+    contents' <- mapM readFile paths
+    let contents = concat $ map (++ (nl ++ nl)) contents'
+    writeFile "jsparsec.js" $ wrap contents
 
 files = ["Main.js"
         ,"Haskell.js"
@@ -17,3 +18,7 @@ files = ["Main.js"
         ,"Token.js"
         ,"Language.js"
         ]
+
+wrap str = "(function(){" ++ nl ++ str ++ nl ++ "})();"
+
+nl = "\r\n"
