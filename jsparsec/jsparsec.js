@@ -2,7 +2,7 @@
 /** @license
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 1.0.0
+ * Version: 1.0.1
  * 
  * http://code.google.com/p/jsparsec/
  * 
@@ -2780,7 +2780,7 @@ var oneLineComment =
 
 var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) );
 
-function _inCommentSingle(st, sc){ return inCommentSingle(st, sc) }
+function _inCommentSingle(state, scope, k){ return inCommentSingle(state, scope, k) }
 
 var inCommentSingle
             = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
@@ -2799,7 +2799,7 @@ var inCommentSingle
 //      where
 //        startEnd   = nub (commentEnd languageDef ++ commentStart languageDef)
 
-function _inCommentMulti(st){ return inCommentMulti(st) }
+function _inCommentMulti(state, scope, k){ return inCommentMulti(state, scope, k) }
 
 var inCommentMulti
             = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
@@ -2822,7 +2822,7 @@ var inComment = languageDef.nestedComments ? inCommentMulti : inCommentSingle;
 //         ; inComment
 //         }
 
-function _multiLineComment(st){ return multiLineComment(st) }
+function _multiLineComment(state, scope, k){ return multiLineComment(state, scope, k) }
 
 var multiLineComment =
         do_( try_ (string (languageDef.commentStart))
@@ -3104,7 +3104,7 @@ function number(base, baseDigit){
 //  hexadecimal     = do{ oneOf "xX"; number 16 hexDigit }
 //  octal           = do{ oneOf "oO"; number 8 octDigit  }
 
-function _decimal(st, sc){ return decimal(st, sc) }
+function _decimal(state, scope, k){ return decimal(state, scope, k) }
 
 var decimal         = number(10, digit);
 var hexadecimal     = cs( oneOf, "xX" ) ( number, 16, hexDigit ).resolve();
