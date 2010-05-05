@@ -1,7 +1,7 @@
 /** @license
  * JSParsec - A parser combinator library for JavaScript
  * 
- * Version: 1.0.0
+ * Version: 1.0.1
  * 
  * http://code.google.com/p/jsparsec/
  * 
