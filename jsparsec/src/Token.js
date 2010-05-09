@@ -778,7 +778,7 @@ var stringLiteral   = lexeme(
                                                       [char_('"') ,"<?>", "end of string"],
                                                       [many, stringChar]
                                )
-                               (ret, function(scope){ return foldr(curry(maybe)(id, curry(cons)), "", scope.str) }) //TODO
+                               (ret, function(scope){ return foldr(curry(maybe)(id, curry(cons)), "", scope.str) })
                           ,"<?>", "literal string"].resolve()
                       );
 
@@ -922,7 +922,6 @@ var decimalFloat    = cs( "n" ,"<-", decimal )
                         }).resolve();
 
 
-//
 //  zeroNumFloat    =  do{ n <- hexadecimal <|> octal
 //                       ; return (Left n)
 //                       }
