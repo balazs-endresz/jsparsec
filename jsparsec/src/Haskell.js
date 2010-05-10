@@ -31,7 +31,7 @@ function ADT(){}
 function adtToString(type){
     return function(){
         var acc=[], rec = this._recordset;
-        if(!isArray(rec)){
+        if(rec && !isArray(rec)){
             for(var name in rec){
                 var item = (type ? (rec[name].name || rec[name]) : this[name]);
                 if(!type && (item instanceof Function))
@@ -332,8 +332,12 @@ function resolve(args, rec){
         else{
             if(i == (l-1))
                 fna.push(e);
-            if(fna.length> 1)
-                fn = fna[0].apply(null, fna.slice(1));
+            if(fna.length> 1){
+                //if(!fna[0] || !fna[0].apply)
+                //    throw ["Expecting function in array-expression instead of " + fna[0], args, fna];
+                var functionInArrayExpr = fna[0];
+                fn = functionInArrayExpr.apply(null, fna.slice(1));
+            }
             else
                 fn = fna[0];
             newfna.push(fn);
@@ -401,6 +405,7 @@ function cs(){
 extend(JSParsec, {
     data      : data,
     ADT       : ADT,
+    record    : record,
     Maybe     : Maybe,
     Ordering  : Ordering,
     Either    : Either,

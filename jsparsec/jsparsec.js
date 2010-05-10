@@ -299,6 +299,24 @@ function range(lower, upper){
     };
 }
 
+function fst(tuple){
+    return tuple[0];
+}
+
+function snd(tuple){
+    return tuple[1];
+}
+
+
+//-- | 'uncurry' converts a curried function to a function on pairs.
+//uncurry                 :: (a -> b -> c) -> ((a, b) -> c)
+//uncurry f p             =  f (fst p) (snd p)
+function uncurry(f){
+    return function(p){
+        return f(p[0], p[1]);
+    }
+}
+
 function namespace(){
     var o, d;
     map(function(v) {
@@ -316,7 +334,7 @@ var JSParsec = window.JSParsec = {};
 extend(JSParsec, {
     curry       : curry,
     const_      : const_,
-    "const"     : const_,
+    //"const"     : const_,
     isArray     : isArray,
     isDefined   : isDefined,
     slice       : slice,
@@ -341,7 +359,7 @@ extend(JSParsec, {
     replicate   : replicate,
     negate      : negate,
     null_       : null_,
-    "null"      : null_,
+    //"null"      : null_,
     elem        : elem,
     isSpace     : isSpace,
     isUpper     : isUpper,
@@ -357,7 +375,10 @@ extend(JSParsec, {
     namespace   : namespace,
     toInteger   : toInteger,
     fromInteger : fromInteger,
-    fromIntegral: fromIntegral
+    fromIntegral: fromIntegral,
+    fst         : fst,
+    snd         : snd,
+    uncurry     : uncurry
 });
 
 // -------------------------------------------------
@@ -393,7 +414,7 @@ function ADT(){}
 function adtToString(type){
     return function(){
         var acc=[], rec = this._recordset;
-        if(!isArray(rec)){
+        if(rec && !isArray(rec)){
             for(var name in rec){
                 var item = (type ? (rec[name].name || rec[name]) : this[name]);
                 if(!type && (item instanceof Function))
@@ -694,8 +715,12 @@ function resolve(args, rec){
         else{
             if(i == (l-1))
                 fna.push(e);
-            if(fna.length> 1)
-                fn = fna[0].apply(null, fna.slice(1));
+            if(fna.length> 1){
+                //if(!fna[0] || !fna[0].apply)
+                //    throw ["Expecting function in array-expression instead of " + fna[0], args, fna];
+                var functionInArrayExpr = fna[0];
+                fn = functionInArrayExpr.apply(null, fna.slice(1));
+            }
             else
                 fn = fna[0];
             newfna.push(fn);
@@ -763,6 +788,7 @@ function cs(){
 extend(JSParsec, {
     data      : data,
     ADT       : ADT,
+    record    : record,
     Maybe     : Maybe,
     Ordering  : Ordering,
     Either    : Either,
@@ -1031,7 +1057,7 @@ function Parser(){}
 function parserBind(p, f){ 
     return function(state, scope, k){
         return {func:p, args:[state, scope, function(result){
-            return k(f(result));
+            return result.success ? k(f(result.ast)) : k(result);
         }]};
     };
 }
@@ -1148,7 +1174,7 @@ var pure = return_;
 //and applies the ast of the first to the ast of the second
 //the ast of the first must be a function
 function ap(a, b){
-    return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
+    return fmap(function(ast){ return ast[0](ast[1]) }, tokens([a, b]));
 }
 
 // Parser combinator that passes the AST generated from the parser 'p' 
@@ -1168,11 +1194,12 @@ function parsecMap(f, p){
 }
 
 var fmap = parsecMap;
-var liftM = fmap;
-var liftA = liftM;
+var liftA = fmap;
 var liftA2 = function(f, a, b   ){ return ap(   fmap(f, a), b)     };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
-
+var liftM = liftA;
+var liftM2 = liftA2;
+var liftM3 = liftA3;
 
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
 //function skip_fst(p1, p2){ return do_(p1, p2) }
@@ -1554,6 +1581,8 @@ extend(JSParsec, {
     parsecMap       : parsecMap,
     fmap            : fmap,
     liftM           : liftM,
+    liftM2          : liftM2,
+    liftM3          : liftM3,
     liftA           : liftA,
     liftA2          : liftA2,
     liftA3          : liftA3,

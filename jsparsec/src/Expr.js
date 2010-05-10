@@ -50,6 +50,15 @@ data(Operator, [
     ["Postfix", Parser]
 ]);
 
+//TODO: this should be removed after all primitive parsers have proper types
+function Operator(){}
+data(Operator, [
+    ["Infix", Function, Assoc],
+    ["Prefix", Function],
+    ["Postfix", Function]
+]);
+
+
 //TODO: type decl.
 
 //-- | An @OperatorTable s u m a@ is a list of @Operator s u m a@
@@ -104,6 +113,12 @@ function buildExpressionParser(operators, simpleExpr){
 
 //      makeParser term ops
     function makeParser(term, ops){
+        
+        function hook(fn, ident){
+            return function(state, scope, k){
+                return fn(scope[ident])(state, scope, k);
+            };
+        }
         
 //        = let (rassoc,lassoc,nassoc
 //               ,prefix,postfix)      = foldr splitOp ([],[],[],[],[]) ops
@@ -222,12 +237,6 @@ function buildExpressionParser(operators, simpleExpr){
                 ,"<|>", ambigiousNon
                 ,"<|>", ret, function(scope){ return scope.f(x, scope.y) }
                 ).resolve();
-        }
-        
-        function hook(fn, ident){
-            return function(state, scope, k){
-                return fn(scope[ident])(state, scope, k);
-            };
         }
         
 //           in  do{ x <- termP

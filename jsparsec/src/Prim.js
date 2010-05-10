@@ -250,7 +250,7 @@ function Parser(){}
 function parserBind(p, f){ 
     return function(state, scope, k){
         return {func:p, args:[state, scope, function(result){
-            return k(f(result));
+            return result.success ? k(f(result.ast)) : k(result);
         }]};
     };
 }
@@ -367,7 +367,7 @@ var pure = return_;
 //and applies the ast of the first to the ast of the second
 //the ast of the first must be a function
 function ap(a, b){
-    return fmap(function(ast){ return ast[0](ast[1]) }, tokens(a, b));
+    return fmap(function(ast){ return ast[0](ast[1]) }, tokens([a, b]));
 }
 
 // Parser combinator that passes the AST generated from the parser 'p' 
@@ -387,11 +387,12 @@ function parsecMap(f, p){
 }
 
 var fmap = parsecMap;
-var liftM = fmap;
-var liftA = liftM;
+var liftA = fmap;
 var liftA2 = function(f, a, b   ){ return ap(   fmap(f, a), b)     };
 var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
-
+var liftM = liftA;
+var liftM2 = liftA2;
+var liftM3 = liftA3;
 
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
 //function skip_fst(p1, p2){ return do_(p1, p2) }
@@ -773,6 +774,8 @@ extend(JSParsec, {
     parsecMap       : parsecMap,
     fmap            : fmap,
     liftM           : liftM,
+    liftM2          : liftM2,
+    liftM3          : liftM3,
     liftA           : liftA,
     liftA2          : liftA2,
     liftA3          : liftA3,

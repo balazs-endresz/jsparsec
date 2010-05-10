@@ -279,6 +279,24 @@ function range(lower, upper){
     };
 }
 
+function fst(tuple){
+    return tuple[0];
+}
+
+function snd(tuple){
+    return tuple[1];
+}
+
+
+//-- | 'uncurry' converts a curried function to a function on pairs.
+//uncurry                 :: (a -> b -> c) -> ((a, b) -> c)
+//uncurry f p             =  f (fst p) (snd p)
+function uncurry(f){
+    return function(p){
+        return f(p[0], p[1]);
+    }
+}
+
 function namespace(){
     var o, d;
     map(function(v) {
@@ -296,7 +314,7 @@ var JSParsec = window.JSParsec = {};
 extend(JSParsec, {
     curry       : curry,
     const_      : const_,
-    "const"     : const_,
+    //"const"     : const_,
     isArray     : isArray,
     isDefined   : isDefined,
     slice       : slice,
@@ -321,7 +339,7 @@ extend(JSParsec, {
     replicate   : replicate,
     negate      : negate,
     null_       : null_,
-    "null"      : null_,
+    //"null"      : null_,
     elem        : elem,
     isSpace     : isSpace,
     isUpper     : isUpper,
@@ -337,5 +355,8 @@ extend(JSParsec, {
     namespace   : namespace,
     toInteger   : toInteger,
     fromInteger : fromInteger,
-    fromIntegral: fromIntegral
+    fromIntegral: fromIntegral,
+    fst         : fst,
+    snd         : snd,
+    uncurry     : uncurry
 });
