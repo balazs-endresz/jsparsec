@@ -1,0 +1,15 @@
+/** @license
+ * JavaScript analysis tools for JSParsec
+ * 
+ * Version: 0.0.1
+ * 
+ * http://code.google.com/p/jsparsec/
+ * 
+ * Copyright (c) 2010 Balazs Endresz (balazs.endresz@gmail.com)
+ * Dual licensed under the MIT and GPL licenses.
+ *
+ * This is a port of the WebBits library (BrownPLT.JavaScript.*):
+ * http://hackage.haskell.org/package/WebBits-2.0
+ * Copyright (c) 2007-2009 Arjun Guha, Claudiu Saftoiu, and Spiridon Eliopoulos
+ * 
+ */
