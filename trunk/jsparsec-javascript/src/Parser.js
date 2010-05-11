@@ -33,12 +33,15 @@ var cfhrh = id; //TODO
 var error = id; //TODO
 
 function readHex(str){
-    return parseInt(str, 16); //TODO
+    return parseInt(str.join ? str.join("") : str, 16); //TODO
 }
 var round = Math.round;
 
-var getPosition = getParserState; //TODO
+var getPosition = getParserState;
 
+function sourceLine(pos, state){
+    return state.input.substring(0, pos).match(/(\r\n)|(\n\r)|\r|\n/g).length;
+}
 
 //-- We parameterize the parse tree over source-locations.
 //type ParsedStatement = Statement SourcePos
@@ -51,7 +54,7 @@ var getPosition = getParserState; //TODO
 
 //identifier =
 //  liftM2 Id getPosition Lexer.identifier
-var identifier = liftM2(Id.Id, getPosition, lex.identifier); //TODO
+var identifier = liftM2(Id.Id, getPosition, lex.identifier);
 
 
 //--{{{ Statements
@@ -78,7 +81,7 @@ var identifier = liftM2(Id.Id, getPosition, lex.identifier); //TODO
 //    <|> return (IfSingleStmt pos test consequent))
 
 var parseIfStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "if")
   ("test" ,"<-", parseParenExpr ,"<?>", "parenthesized test-expression in if statement")
   ("consequent" ,"<-", parseStatement ,"<?>", "true-branch of if statement")
@@ -89,7 +92,7 @@ var parseIfStmt = cs
             return Statement.IfStmt(scope.scope.pos, scope.scope.test,
                         scope.scope.consequent, scope.alternate);
         })
-    ,"<|>", returnCall, Statement.IfSingleStmt, "pos", "test", "consequent"
+    ,"<|>", returnCall(Statement.IfSingleStmt, "pos", "test", "consequent")
   )
 
 
@@ -118,22 +121,22 @@ var _parseDefault = cs
   (lex.reserved, "default")
   (lex.colon)
   ("statements" ,"<-", many, parseStatement)
-  (returnCall (CaseClause.CaseDefault ,"pos",  "statements"))
+  (returnCall, CaseClause.CaseDefault, "pos",  "statements")
   
 var _parseCase = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "case")
   ("condition" ,"<-", parseListExpr)
   (lex.colon)
-  ("actions" ,"<-", many, parseStatement)
-  (returnCall (CaseClause.CaseClause ,"pos", "condition", "actions"))
+  ("actions"   ,"<-", many, parseStatement)
+  (returnCall, CaseClause.CaseClause, "pos", "condition", "actions")
   
 var parseSwitchStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"     ,"<-", getPosition)
   (lex.reserved, "switch")
-  ("test" ,"<-", parseParenExpr)
+  ("test"    ,"<-", parseParenExpr)
   ("clauses" ,"<-", lex.braces ,"$", many ,"$", _parseDefault ,"<|>", _parseCase)
-  (returnCall (Statement.SwitchStmt ,"pos", "test", "clauses"))
+  (returnCall, Statement.SwitchStmt, "pos", "test", "clauses")
 
 //parseWhileStmt:: StatementParser st
 //parseWhileStmt = do
@@ -144,7 +147,7 @@ var parseSwitchStmt = cs
 //  return (WhileStmt pos test body)
 
 var parseWhileStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "while")
   ("test" ,"<-", parseParenExpr ,"<?>", "parenthesized test-expression in while loop")
   ("body" ,"<-", parseStatement)
@@ -161,7 +164,7 @@ var parseWhileStmt = cs
 //  optional semi
 //  return (DoWhileStmt pos body test)
 var parseDoWhileStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "do")
   ("body" ,"<-", parseBlockStmt)
   (lex.reserved, "while" ,"<?>", "while at the end of a do block")
@@ -181,12 +184,12 @@ var parseDoWhileStmt = cs
 //           else return Nothing)
 //  return (ContinueStmt pos id)
 var parseContinueStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "continue")
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'continue.'
-  ("id" ,"<-", function(state, scope, k){
-    return ((sourceLin(scope.pos) == sourceLine(scope.pos_)) ? 
+  ("id"   ,"<-", function(state, scope, k){
+    return ((sourceLine(scope.pos, state) == sourceLine(scope.pos_, state)) ? 
             parserPlus(liftM(Maybe.Just, identifier), return_(Maybe.Nothing)) :
             return_(Maybe.Nothing))(state, scope, k);
   })
@@ -205,17 +208,17 @@ var parseContinueStmt = cs
 //  optional semi           
 //  return (BreakStmt pos id)
 var parseBreakStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "break")
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'break.')
-  ("id" ,"<-", function(state, scope, k){
-    return ((sourceLine(scope.pos) == sourceLine(scope.pos_)) ? 
+  ("id"   ,"<-", function(state, scope, k){
+    return ((sourceLine(scope.pos, state) == sourceLine(scope.pos_, state)) ? 
             parserPlus(liftM(Maybe.Just, identifier), return_(Maybe.Nothing)) :
             return_(Maybe.Nothing))(state, scope, k);
   })
   (optional, lex.semi)
-  (returnCall (Statement.BreakStmt, "pos", "id"))
+  (returnCall, Statement.BreakStmt, "pos", "id")
 
 
 //parseBlockStmt:: StatementParser st
@@ -237,7 +240,7 @@ var parseBlockStmt = cs
 var parseEmptyStmt = cs
   ("pos" ,"<-", getPosition)
   (lex.semi)
-  (returnCall (Statement.EmptyStmt ,"pos"))
+  (returnCall, Statement.EmptyStmt, "pos")
 
 
 //parseLabelledStmt:: StatementParser st
@@ -251,7 +254,7 @@ var parseEmptyStmt = cs
 //  statement <- parseStatement
 //  return (LabelledStmt pos label statement)
 var parseLabelledStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"   ,"<-", getPosition)
   // Lookahead for the colon.  If we don't see it, we are parsing an identifier
   // for an expression statement.
   ("label" ,"<-", try_, cs("label" ,"<-", identifier)
@@ -259,7 +262,7 @@ var parseLabelledStmt = cs
                           (ret, "label")
   )
   ("statement" ,"<-", parseStatement)
-  (returnCall (Statement.LabelledStmt ,"pos", "label", "statement"))
+  (returnCall, Statement.LabelledStmt, "pos", "label", "statement")
 
 
 //parseExpressionStmt:: StatementParser st
@@ -269,10 +272,10 @@ var parseLabelledStmt = cs
 //  optional semi
 //  return (ExprStmt pos expr)
 var parseExpressionStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   ("expr" ,"<-", parseListExpr) // TODO: spec 12.4?
   (optional, lex.semi)
-  (returnCall (Statement.ExprStmt ,"pos", "expr"))
+  (returnCall, Statement.ExprStmt, "pos", "expr")
 
 
 //parseForInStmt:: StatementParser st
@@ -288,8 +291,8 @@ var parseExpressionStmt = cs
 //                                            return (init,expr)))
 //          body <- parseStatement
 //          return (ForInStmt pos init expr body) 
-var _parseInit = [[lex.reserved, "var" ,">>", liftM, ForInInit.ForInVar, identifier]
-    ,"<|>", [liftM, ForInInit.ForInNoVar, identifier]].resolve();
+var _parseInit = ex([lex.reserved, "var" ,">>", liftM, ForInInit.ForInVar, identifier]
+    ,"<|>", [liftM, ForInInit.ForInNoVar, identifier]);
 
 var parseForInStmt = cs
   ("pos" ,"<-", getPosition)
@@ -324,11 +327,11 @@ var parseForInStmt = cs
 //          reservedOp ")" <?> "closing paren"
 //          stmt <- parseStatement
 //          return (ForStmt pos init test iter stmt)
-var _parseInit2 = [
-    [lex.reserved, "var" ,">>", liftM, ForInit.VarInit, [parseVarDecl ,op(sepBy), lex.comma]] ,"<|>",
-    [liftM, ForInit.ExprInit, parseListExpr] ,"<|>",
-    return_(ForInit.NoInit)
-  ].resolve();
+var _parseInit2 = ex(
+    [lex.reserved, "var" ,">>", liftM, ForInit.VarInit, [parseVarDecl ,op(sepBy), lex.comma]]
+    ,"<|>", [liftM, ForInit.ExprInit, parseListExpr]
+    ,"<|>", return_(ForInit.NoInit)
+  );
   
 var parseForStmt = cs
   ("pos" ,"<-", getPosition)
@@ -341,7 +344,7 @@ var parseForStmt = cs
   ("iter" ,"<-", [liftM, Maybe.Just, parseListExpr] ,"<|>", return_(Maybe.Nothing))
   (lex.reservedOp(")") ,"<?>", "closing paren")
   ("stmt" ,"<-", parseStatement)
-  (returnCall (Statement.ForStmt ,"pos", "init", "test", "iter", "stmt"))
+  (returnCall, Statement.ForStmt, "pos", "init", "test", "iter", "stmt")
 
 //parseTryStmt:: StatementParser st
 //parseTryStmt =
@@ -359,20 +362,20 @@ var parseForStmt = cs
 //                      <|> (return Nothing)
 //          return (TryStmt pos guarded catches finally)
 var _parseCatchClause = cs
-    ("pos" ,"<-", getPosition)
+    ("pos"  ,"<-", getPosition)
     (lex.reserved, "catch")
-    ("id" ,"<-", lex.parens, identifier)
+    ("id"   ,"<-", lex.parens, identifier)
     ("stmt" ,"<-", parseStatement)
-    (returnCall (CatchClause.CatchClause, "pos", "id", "stmt"))
+    (returnCall, CatchClause.CatchClause, "pos", "id", "stmt")
             
 var parseTryStmt =cs
   (lex.reserved, "try")
-  ("pos" ,"<-", getPosition)
+  ("pos"     ,"<-", getPosition)
   ("guarded" ,"<-", parseStatement)
   ("catches" ,"<-", many, _parseCatchClause)
   ("finally" ,"<-", [lex.reserved, "finally" ,">>", liftM, Maybe.Just, parseStatement]
                ,"<|>", return_(Maybe.Nothing))
-  (returnCall(Statement.TryStmt ,"pos", "guarded", "catches", "finally"))
+  (returnCall, Statement.TryStmt, "pos", "guarded", "catches", "finally")
 
 
 //parseThrowStmt:: StatementParser st
@@ -387,7 +390,7 @@ var parseThrowStmt = cs
   (lex.reserved, "throw")
   ("expr" ,"<-", parseExpression)
   (optional, lex.semi)
-  (returnCall (Statement.ThrowStmt ,"pos", expr))
+  (returnCall, Statement.ThrowStmt, "pos", "expr")
 
 
 //parseReturnStmt:: StatementParser st
@@ -402,7 +405,7 @@ var parseReturnStmt = cs
   (lex.reserved, "return")
   ("expr" ,"<-", [liftM, Maybe.Just, parseListExpr] ,"<|>", return_(Maybe.Nothing))
   (optional, lex.semi)
-  (returnCall (Statement.ReturnStmt ,"pos",  expr))
+  (returnCall, Statement.ReturnStmt, "pos", "expr")
 
 
 //parseWithStmt:: StatementParser st
@@ -417,7 +420,7 @@ var parseWithStmt = cs
   (lex.reserved, "with")
   ("context" ,"<-", parseParenExpr)
   ("stmt" ,"<-", parseStatement)
-  (returnCall (Statement.WithStmt ,"pos", "context", "stmt"))
+  (returnCall, Statement.WithStmt, "pos", "context", "stmt")
 
 
 //parseVarDecl = do
@@ -429,7 +432,7 @@ var parseVarDecl = cs
   ("pos" ,"<-", getPosition)
   ("id" ,"<-", identifier)
   ("init" ,"<-", [lex.reservedOp("=") ,">>", liftM, Maybe.Just, parseExpression] ,"<|>", return_(Maybe.Nothing))
-  (returnCall (VarDecl.VarDecl ,"pos", "id", "init"))
+  (returnCall, VarDecl.VarDecl, "pos", "id", "init")
 
 
 //parseVarDeclStmt:: StatementParser st
@@ -444,7 +447,7 @@ var parseVarDeclStmt = cs
   (lex.reserved, "var")
   ("decls" ,"<-", parseVarDecl, op(sepBy), lex.comma)
   (optional, lex.semi)
-  (returnCall (Statement.VarDeclStmt ,"pos",  "decls"))
+  (returnCall, Statement.VarDeclStmt, "pos",  "decls")
 
 
 //parseFunctionStmt:: StatementParser st
@@ -459,7 +462,7 @@ var parseFunctionStmt = cs
   ("name" ,"<-", try_, [lex.reserved, "function", ">>", identifier]) // ambiguity with FuncExpr
   ("args" ,"<-", lex.parens, [identifier ,op(sepBy), lex.comma])
   ("body" ,"<-", parseBlockStmt ,"<?>", "function body in { ... }")
-  (returnCall (Statement.FunctionStmt ,"pos", "name", "args", "body"))
+  (returnCall, Statement.FunctionStmt, "pos", "name", "args", "body")
 
 
 //parseStatement:: StatementParser st
@@ -470,20 +473,17 @@ var parseFunctionStmt = cs
 //  <|> parseVarDeclStmt  <|> parseFunctionStmt
 //  -- labelled, expression and the error message always go last, in this order
 //  <|> parseLabelledStmt <|> parseExpressionStmt <?> "statement"
-var parseStatement = [parseIfStmt ,"<|>", parseSwitchStmt ,"<|>", parseWhileStmt 
+var parseStatement = ex(parseIfStmt ,"<|>", parseSwitchStmt ,"<|>", parseWhileStmt 
   ,"<|>", parseDoWhileStmt ,"<|>", parseContinueStmt ,"<|>", parseBreakStmt 
   ,"<|>", parseBlockStmt ,"<|>", parseEmptyStmt ,"<|>", parseForInStmt ,"<|>", parseForStmt
   ,"<|>", parseTryStmt ,"<|>", parseThrowStmt ,"<|>", parseReturnStmt ,"<|>", parseWithStmt
   ,"<|>", parseVarDeclStmt  ,"<|>", parseFunctionStmt
   // labelled, expression and the error message always go last, in this order
-  ,"<|>", parseLabelledStmt ,"<|>", parseExpressionStmt ,"<?>", "statement"].resolve();
+  ,"<|>", parseLabelledStmt ,"<|>", parseExpressionStmt ,"<?>", "statement");
 
 
-//
-//--}}}
-//
 //--{{{ Expressions
-//
+
 //-- References used to construct this stuff:
 //-- + http://developer.mozilla.org/en/docs/
 //--     Core_JavaScript_1.5_Reference:Operators:Operator_Precedence
@@ -498,9 +498,9 @@ var parseStatement = [parseIfStmt ,"<|>", parseSwitchStmt ,"<|>", parseWhileStmt
 //-- exprTable, which consists of operators that bind tighter than ?:.  The terms
 //-- of exprTable are atomic expressions, parenthesized expressions, functions and
 //-- array references.
-//
+
 //--{{{ Primary expressions
-//
+
 //parseThisRef:: ExpressionParser st
 //parseThisRef = do
 //  pos <- getPosition
@@ -509,7 +509,7 @@ var parseStatement = [parseIfStmt ,"<|>", parseSwitchStmt ,"<|>", parseWhileStmt
 var parseThisRef = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "this")
-  (returnCall (Expression.ThisRef ,"pos"))
+  (returnCall, Expression.ThisRef, "pos")
 
 
 //parseNullLit:: ExpressionParser st
@@ -520,7 +520,7 @@ var parseThisRef = cs
 var parseNullLit = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "null")
-  (returnCall (Expression.NullLit ,"pos"))
+  (returnCall, Expression.NullLit, "pos")
 
 
 //parseBoolLit:: ExpressionParser st
@@ -562,7 +562,7 @@ var parseFuncExpr = cs
   ("name" ,"<-", [identifier, ">>=", compose1(return_, Maybe.Just)] ,"<|>", return_, Maybe.Nothing)
   ("args" ,"<-", lex.parens, [identifier ,op(sepBy), lex.comma])
   ("body" ,"<-", parseBlockStmt)
-  (returnCall, Expression.FuncExpr ,"pos", "name", "args", "body")
+  (returnCall, Expression.FuncExpr, "pos", "name", "args", "body")
 
 
 //--{{{ parsing strings
@@ -590,7 +590,6 @@ var parseEscapeChar = cs
     return lookup(scope.c, escapeChars)[0]; // will succeed due to line above
   })
 
-
 //parseAsciiHexChar = do
 //  char 'x'
 //  d1 <- hexDigit
@@ -613,7 +612,7 @@ var parseUnicodeHexChar = cs
 
 
 //isWhitespace ch = ch `elem` " \t"
-function isWhitespace(ch){ return elem(ch, " \t") }
+function isWhitespace(ch){ return (ch == " ") || (ch == "\t") }
 
 
 //-- The endWith argument is either single-quote or double-quote, depending on how
@@ -632,7 +631,7 @@ function isWhitespace(ch){ return elem(ch, " \t") }
 //        else return (c:cs)) <|>
 //   (liftM2 (:) anyChar (parseStringLit' endWith))
 
-function lazyParseStringLit_(endWith){ //TODO
+function lazyParseStringLit_(endWith){
     return function (state, scope, k){
         return parseStringLit_(endWith)(state, scope, k);
     }
@@ -683,7 +682,7 @@ var parseStringLit = cs
   // above, expressions like:)
   //   var s = "string"   ;)
   // do not parse.)
-  (returnCall, Expression.StringLit ,"pos", "str")
+  (returnCall, Expression.StringLit, "pos", "str")
 
 
 
@@ -715,13 +714,13 @@ var parseFlags = cs
   })
 var parseEscape = [char_('\\') ,">>", anyChar].resolve();
 var parseChar = noneOf("/");
-var parseRe = [[char_('/') ,">>", return_, ""] ,"<|>", 
+var parseRe = ex([char_('/') ,">>", return_, ""] ,"<|>", 
   cs (char_('\\'))
      ("ch" ,"<-", anyChar) // TOOD: too lenient
      ("rest" ,"<-", parseRe)
      (ret, function(scope){ return '\\' + scope.ch + scope.rest }) ,"<|>",
   [liftM2, cons, anyChar, parseRe]
-].resolve();
+);
 
 var parseRegexpLit = cs
   ("pos" ,"<-", getPosition)
@@ -729,7 +728,7 @@ var parseRegexpLit = cs
   ("pat" ,"<-", parseRe) //many1 parseChar
   ("flags" ,"<-", parseFlags)
   (spaces) // crucial for Parsec.Token parsers
-  (ret, function(scope){ return flags(Expression.RegexpLit(scope.pos, scope.pat)) })
+  (ret, function(scope){ return scope.flags(Expression.RegexpLit(scope.pos, scope.pat)) })
 
 
 //parseObjectLit:: ExpressionParser st
@@ -799,13 +798,15 @@ function mkDecimal(w, f, e){
 //  (char '+' >> decimal) <|> (char '-' >> negate `fmap` decimal) <|> decimal
 var exponentPart = cs
   (oneOf, "eE")
-  ([char_('+') ,">>", lex.decimal] ,"<|>", [char_('-') ,">>", negate ,op(fmap), lex.decimal] ,"<|>", lex.decimal)
+  ([char_('+') ,">>", lex.decimal]
+    ,"<|>", [char_('-') ,">>",  negate ,op(fmap), lex.decimal]
+    ,"<|>", lex.decimal)
 
 
 //--wrap a parser's result in a Just:
 //jparser p = p >>= (return . Just) 
 function jparser(p){
-    return [p ,">>=", [return_ ,".", Maybe.Just]].resolve();
+    return ex(p ,">>=", [return_ ,".", Maybe.Just]);
 }
 
 
@@ -821,7 +822,7 @@ function jparser(p){
 //  (do frac <- char '.' >> decimal
 //      exp <- option 0 exponentPart
 //      return (False, mkDecimal 0.0 (fromIntegral frac) (fromIntegral exp)))
-var decLit = [cs
+var decLit = ex(cs
   ("whole" ,"<-", lex.decimal)
   ("mfrac" ,"<-", option, Maybe.Nothing, [jparser, [char_('.') ,">>", lex.decimal]])
   ("mexp"  ,"<-", option, Maybe.Nothing, [jparser, exponentPart])
@@ -829,8 +830,8 @@ var decLit = [cs
    return (scope.mfrac == Maybe.Nothing && scope.mexp == Maybe.Nothing) ?
             [true, fromIntegral(scope.whole)] :
             [false, mkDecimal(fromIntegral(scope.whole),
-                              fromIntegral (maybe(0, id, scope.mfrac)),
-                              fromIntegral (maybe(0, id, scope.mexp))
+                              fromIntegral(maybe(0, id, scope.mfrac)),
+                              fromIntegral(maybe(0, id, scope.mexp))
                               )];
   })
   ,"<|>", cs
@@ -839,7 +840,7 @@ var decLit = [cs
   (ret, function(scope){
     return [false, mkDecimal(0.0, fromIntegral(scope.frac), fromIntegral(scope.exp))];
   })
-].resolve();
+);
 
 //parseNumLit:: ExpressionParser st
 //parseNumLit = do
@@ -856,7 +857,9 @@ var parseNumLit = cs
   (ret, function(scope){
     var isint = scope.isint_num[0];
     var num = scope.isint_num[1];
-    return isint ? Expression.IntLit(scope.pos, round(num)) : Expression.NumLit(scope.pos, num)
+    return isint ?
+            Expression.IntLit(scope.pos, round(num)) :
+            Expression.NumLit(scope.pos, num)
   })
     
 
@@ -866,6 +869,7 @@ var parseNumLit = cs
 
 //withPos cstr p = do { pos <- getPosition; e <- p; return $ cstr pos e }
 function withPos(cstr, p){
+    //return ex(cstr ,"<$>", getPosition ,"<*>", p);
     return do_(
                bind("pos", getPosition),
                bind("e", p),
@@ -887,20 +891,20 @@ function withPos(cstr, p){
 //    where cstr pos key = BracketRef pos e key
 function dotRef(e){
     function cstr(pos, key){ return Expression.DotRef(pos, e, key) }
-    return [[lex.reservedOp(".") ,">>", withPos, cstr, identifier]
-            ,"<?>", "property.ref"].resolve();
+    return ex([lex.reservedOp(".") ,">>", withPos, cstr, identifier]
+            ,"<?>", "property.ref");
 }
 
 function funcApp(e){
     function cstr(pos, key, args){ return Expression.CallExpr(pos, e, args) }   
-    return [[lex.parens ,"$", withPos, cstr, [parseExpression ,op(sepBy), lex.comma]]
-            ,"<?>", "(function application)"].resolve();
+    return ex([lex.parens ,"$", withPos, cstr, [parseExpression ,op(sepBy), lex.comma]]
+            ,"<?>", "(function application)");
 }
 
 function bracketRef(e){
     function cstr(pos, key){ return Expression.BracketRef(pos, e, key) }
-    return [[lex.brackets ,"$", withPos, cstr, parseExpression]
-            ,"<?>", "[property-ref]"].resolve();
+    return ex([lex.brackets ,"$", withPos, cstr, parseExpression]
+            ,"<?>", "[property-ref]");
 }
 
 //-------------------------------------------------------------------------------
@@ -915,9 +919,9 @@ var parseParenExpr = withPos(Expression.ParenExpr, lex.parens(parseListExpr));
 //parseExprForNew = parseThisRef <|> parseNullLit <|> parseBoolLit <|> parseStringLit 
 //  <|> parseArrayLit <|> parseParenExpr <|> parseNewExpr <|> parseNumLit 
 //  <|> parseRegexpLit <|> parseObjectLit <|> parseVarRef
-var parseExprForNew = [parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit ,"<|>", parseStringLit 
+var parseExprForNew = ex(parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit ,"<|>", parseStringLit 
   ,"<|>", parseArrayLit ,"<|>", parseParenExpr ,"<|>", parseNewExpr ,"<|>", parseNumLit
-  ,"<|>", parseRegexpLit ,"<|>", parseObjectLit ,"<|>", parseVarRef].resolve();
+  ,"<|>", parseRegexpLit ,"<|>", parseObjectLit ,"<|>", parseVarRef);
   
 
 //-- all the expression parsers defined above
@@ -925,10 +929,10 @@ var parseExprForNew = [parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit ,"
 //  <|> parseStringLit <|> parseArrayLit <|> parseParenExpr
 //  <|> parseFuncExpr <|> parseNumLit <|> parseRegexpLit <|> parseObjectLit
 //  <|> parseVarRef
-var parseSimpleExpr_ = [parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit 
+var parseSimpleExpr_ = ex(parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit 
   ,"<|>", parseStringLit ,"<|>", parseArrayLit ,"<|>", parseParenExpr
   ,"<|>", parseFuncExpr ,"<|>", parseNumLit ,"<|>", parseRegexpLit ,"<|>", parseObjectLit
-  ,"<|>", parseVarRef].resolve();
+  ,"<|>", parseVarRef);
 
 //parseSimpleExprForNew (Just e) = (do
 //    e' <- dotRef e <|> bracketRef e
@@ -961,13 +965,14 @@ function parseSimpleExprForNew(maybeVal){
 //      arguments <- (try (parens (parseExpression `sepBy` comma))) <|> (return [])
 //      return (NewExpr pos constructor arguments)) <|>
 //  parseSimpleExpr'
-var parseNewExpr = 
-  [cs("pos" ,"<-", getPosition)
+var parseNewExpr = ex(
+  cs("pos" ,"<-", getPosition)
      (lex.reserved, "new")
      ("constructor_" ,"<-", parseSimpleExprForNew, Maybe.Nothing) // right-associativity
      ("arguments" ,"<-", [try_, [lex.parens, [parseExpression ,op(sepBy), lex.comma]]] ,"<|>", return_([]))
-     (returnCall, Expression.NewExpr ,"pos", "constructor_", "arguments")
-  ,"<|>", parseSimpleExpr_].resolve();
+     (returnCall, Expression.NewExpr, "pos", "constructor_", "arguments")
+  ,"<|>", parseSimpleExpr_
+  );
    
 
 //parseSimpleExpr (Just e) = (do
@@ -1040,14 +1045,14 @@ var parsePrefixedExpr = cs
                       [lex.reserved, "delete" ,">>", return_, PrefixOp.PrefixDelete]
   )
   (function(state, scope, k){
-    var op = scope.op, ret;
+    var op = scope.op, res;
     if(op.Nothing)
-        ret = unaryAssignExpr;
+        res = unaryAssignExpr;
     if(op.Just)
-        ret = cs
+        res = cs
             ("innerExpr" ,"<-", parsePrefixedExpr)
             (ret, function(_scope){ return Expression.PrefixExpr(scope.pos, op[0], _scope.innerExpr) })
-    return ret(state, scope, k);
+    return res(state, scope, k);
   })
 
 //exprTable:: [[Operator Char st ParsedExpression]]
@@ -1099,7 +1104,7 @@ var exprTable =
 //parseExpression' = 
 //  buildExpressionParser exprTable parsePrefixedExpr <?> "simple expression"
 var parseExpression_ = 
-  [buildExpressionParser, arr(exprTable), parsePrefixedExpr ,"<?>", "simple expression"].resolve();
+  label(buildExpressionParser(exprTable, parsePrefixedExpr), "simple expression");
 
 
 //asLValue :: SourcePos
@@ -1289,7 +1294,7 @@ var parseExpression = assignExpr;
 //parseListExpr =
 //  liftM2 ListExpr getPosition (assignExpr `sepBy1` comma)
 var parseListExpr =
-    [liftM2, Expression.ListExpr, getPosition, [assignExpr ,op(sepBy), lex.comma]].resolve();
+    ex(liftM2, Expression.ListExpr, getPosition, [assignExpr ,op(sepBy), lex.comma]);
 
 
 //parseScript:: CharParser state (JavaScript SourcePos)

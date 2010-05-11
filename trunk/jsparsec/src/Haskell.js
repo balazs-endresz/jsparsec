@@ -45,7 +45,7 @@ function adtToString(type){
             acc.push(type ? (rec[i].name || rec[i]) : this[i]);
             acc = acc.join(" ");
         }
-        return  this._dataConstructor + " " + acc;
+        return "(" + this._dataConstructor + (acc ? " " : "") + acc + ")";
     };
 }
 
@@ -363,6 +363,30 @@ function resolve(args, rec){
 
 Array.prototype.resolve = function(){ return resolve(this) };
 
+//an interface for array-expressions that handles self recursion, and evalutes lazily
+function ex(){
+
+    function rec(){ return p.apply(null, arguments) }
+
+    var line = arguments, p, resolved;
+
+    function expr(){
+        return (resolved ? p : expr.resolve()).apply(null, arguments);
+    }
+
+    expr.resolve = function(){
+        if(resolved)
+            return p;
+        p = resolve(line, rec);
+        line = null;
+        resolved = true;
+        return p;
+    };
+
+    expr.CallStream = true;
+
+    return expr;
+}
 
 // -------------------------------------------------
 // Callstream interface for the do notation
@@ -381,9 +405,9 @@ function cs(){
     lines.push(resolve(arguments, rec));
 
     function line(state, scope, k){
-        if(state instanceof ParseState)
+        if(resolved || (state instanceof ParseState))
             return (resolved ? p : line.resolve())(state, scope, k);
-            
+        
         lines.push(resolve(arguments, rec));
         return line;
     }
@@ -392,8 +416,8 @@ function cs(){
         if(resolved)
             return p;
         p = do_.apply(null, lines);
-        lines = null;
         resolved = true;
+        lines = null;
         return p;
     };
 
@@ -416,6 +440,7 @@ extend(JSParsec, {
     arr       : arr,
     op        : op,
     str       : str,
+    ex       : ex,
     resolve   : resolve,
     recurse   : recurse,
     Recurse   : Recurse,

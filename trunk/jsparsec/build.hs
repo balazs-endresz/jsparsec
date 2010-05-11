@@ -17,7 +17,7 @@ files = ["Main.js"
         ,"Combinator.js"
         ,"Token.js"
         ,"Language.js"
---        ,"Expr.js"
+        ,"Expr.js"
         ]
 
 wrap str = ";(function(){" ++ nl ++ str ++ nl ++ "})();"

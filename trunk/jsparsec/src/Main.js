@@ -297,6 +297,19 @@ function uncurry(f){
     }
 }
 
+//lookup :: (Eq a) => a -> [(a,b)] -> Maybe b
+function lookup(key, arr){
+    var length = arr.length;   
+    if (!length)
+        return Maybe.Nothing;
+    
+    for (var i = 0; i < length; ++i)  
+      if (arr[i][0] === key)
+        return Maybe.Just(arr[i][1]);  
+   
+    return Maybe.Nothing;
+}
+
 function namespace(){
     var o, d;
     map(function(v) {
@@ -358,5 +371,6 @@ extend(JSParsec, {
     fromIntegral: fromIntegral,
     fst         : fst,
     snd         : snd,
-    uncurry     : uncurry
+    uncurry     : uncurry,
+    lookup      : lookup
 });

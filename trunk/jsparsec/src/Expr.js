@@ -42,13 +42,14 @@ data(Assoc, ["AssocNone", "AssocLeft", "AssocRight"]);
 //data Operator s u m a   = Infix (ParsecT s u m (a -> a -> a)) Assoc
 //                        | Prefix (ParsecT s u m (a -> a))
 //                        | Postfix (ParsecT s u m (a -> a))
-
+/*
 function Operator(){}
 data(Operator, [
     ["Infix", Parser, Assoc],
     ["Prefix", Parser],
     ["Postfix", Parser]
 ]);
+*/
 
 //TODO: this should be removed after all primitive parsers have proper types
 function Operator(){}
