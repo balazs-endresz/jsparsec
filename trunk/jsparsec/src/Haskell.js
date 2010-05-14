@@ -306,7 +306,7 @@ function resolve(args, rec){
             return e;
         }
         return isArray(e) ? resolve(e, rec) :
-                (e && e.CallStream) ? e.resolve() : e;
+                (e && e.CallStream) ? e.resolve(rec) : e;
     }, args);
     
     //inject recursive calls
@@ -374,17 +374,17 @@ function ex(){
         return (resolved ? p : expr.resolve()).apply(null, arguments);
     }
 
-    expr.resolve = function(){
+    expr.resolve = function(_rec){
         if(resolved)
             return p;
-        p = resolve(line, rec);
+        p = resolve(line, _rec || rec);
         line = null;
         resolved = true;
         return p;
     };
 
     expr.CallStream = true;
-
+    expr.constructor = Parser;
     return expr;
 }
 
@@ -422,7 +422,7 @@ function cs(){
     };
 
     line.CallStream = true;
-
+    line.constructor = Parser;
     return line;
 }
 
