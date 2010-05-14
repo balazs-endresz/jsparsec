@@ -143,26 +143,26 @@ data(LValue, [
 data(Expression, [
     ["StringLit", "a", String]
    ,["RegexpLit", "a", String, Boolean /* global? */, Boolean /* case-insensitive? */]
-   ,["NumLit", "a", Number]
-   ,["IntLit", "a", Number]
-   ,["BoolLit", "a", Boolean]
-   ,["NullLit", "a"]
-   ,["ArrayLit", "a", Array]
+   ,["NumLit"   , "a", Number]
+   ,["IntLit"   , "a", Number]
+   ,["BoolLit"  , "a", Boolean]
+   ,["NullLit"  , "a"]
+   ,["ArrayLit" , "a", Array]
    ,["ObjectLit", "a", Array]
-   ,["ThisRef", "a"]
-   ,["VarRef", "a", Id]
-   ,["DotRef", "a", Expression, Id]
-   ,["BracketRef", "a", Expression /* container */, Expression /* key */]
-   ,["NewExpr", "a", Expression /* constructor */, Array]
-   ,["PrefixExpr", "a", PrefixOp, Expression]
+   ,["ThisRef"  , "a"]
+   ,["VarRef"   , "a", Id]
+   ,["DotRef"   , "a", Expression, Id]
+   ,["BracketRef"   , "a", Expression /* container */, Expression /* key */]
+   ,["NewExpr"      , "a", Expression /* constructor */, Array]
+   ,["PrefixExpr"   , "a", PrefixOp, Expression]
    ,["UnaryAssignExpr", "a", UnaryAssignOp, LValue]
-   ,["InfixExpr", "a", InfixOp, Expression, Expression]
-   ,["CondExpr", "a", Expression, Expression, Expression]
-   ,["AssignExpr", "a", AssignOp, LValue, Expression]
+   ,["InfixExpr"    , "a", InfixOp, Expression, Expression]
+   ,["CondExpr"     , "a", Expression, Expression, Expression]
+   ,["AssignExpr"   , "a", AssignOp, LValue, Expression]
    ,["ParenExpr", "a", Expression]
-   ,["ListExpr", "a", Array]
-   ,["CallExpr", "a", Expression, Expression]
-   ,["FuncExpr", "a", Maybe, Array, Statement] //funcexprs are optionally named
+   ,["ListExpr" , "a", Array]
+   ,["CallExpr" , "a", Expression, Expression]
+   ,["FuncExpr" , "a", Maybe, Array, Statement] //funcexprs are optionally named
 ]);
 
 
@@ -274,6 +274,8 @@ data(Statement, [
     ,["ReturnStmt"  , "a", Maybe]
     ,["WithStmt"    , "a", Expression, Statement]
     ,["VarDeclStmt" , "a", Array]
-    ,["FunctionStmt", "a", Id /*name*/, Array /*args*/, Statement /*body*/]
+    ,["FunctionStmt", "a", Id,        //name
+                           Array,     //args
+                           Statement] //body
 ]);
 
