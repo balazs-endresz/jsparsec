@@ -40,7 +40,8 @@ var round = Math.round;
 var getPosition = getParserState;
 
 function sourceLine(pos, state){
-    return state.input.substring(0, pos).match(/(\r\n)|(\n\r)|\r|\n/g).length;
+    var m = state.input.substring(0, pos).match(/(\r\n)|(\n\r)|\r|\n/g);
+    return m ? m.length : 0;
 }
 
 //-- We parameterize the parse tree over source-locations.
@@ -559,7 +560,7 @@ var parseArrayLit = liftM2(Expression.ArrayLit, getPosition, lex.squares(sepEndB
 var parseFuncExpr = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "function")
-  ("name" ,"<-", [identifier, ">>=", compose1(return_, Maybe.Just)] ,"<|>", return_, Maybe.Nothing)
+  ("name" ,"<-", [identifier, ">>=", return_ ,".", Maybe.Just] ,"<|>", return_, Maybe.Nothing)
   ("args" ,"<-", lex.parens, [identifier ,op(sepBy), lex.comma])
   ("body" ,"<-", parseBlockStmt)
   (returnCall, Expression.FuncExpr, "pos", "name", "args", "body")
@@ -632,15 +633,16 @@ function isWhitespace(ch){ return (ch == " ") || (ch == "\t") }
 //   (liftM2 (:) anyChar (parseStringLit' endWith))
 
 function lazyParseStringLit_(endWith){
-    return function (state, scope, k){
+    return function(state, scope, k){
         return parseStringLit_(endWith)(state, scope, k);
     }
 }
 
+
 function parseStringLit_(endWith){
-  return [
+  return ex(
     [char_(endWith) ,">>", return_, ""] ,"<|>",
-    [cs (try_(string, "\\'"))
+    [cs (try_, [string, "\\'"])
         ("cs" ,"<-", lazyParseStringLit_(endWith))
         (ret, function(scope){ return "'" + scope.cs })
     ] ,"<|>",
@@ -655,7 +657,7 @@ function parseStringLit_(endWith){
         })
     ],"<|>",
     [liftM2, cons, anyChar, lazyParseStringLit_(endWith)]
-  ].resolve();
+  );
 }
 
 
@@ -676,12 +678,12 @@ var parseStringLit = cs
   // parseStringLit' takes as an argument the quote-character that opened the)
   // string.)
   ("str" ,"<-", lex.lexeme, "$", [char_('\'') ,">>=", parseStringLit_]
-                            ,"<|>", [char_('\"') ,">>=", parseStringLit_])
-  // CRUCIAL: Parsec.Token parsers expect to find their token on the first)
-  // character, and read whitespaces beyond their tokens.  Without 'lexeme')
-  // above, expressions like:)
-  //   var s = "string"   ;)
-  // do not parse.)
+                            ,"<|>", [char_('"') ,">>=", parseStringLit_])
+  // CRUCIAL: Parsec.Token parsers expect to find their token on the first
+  // character, and read whitespaces beyond their tokens.  Without 'lexeme'
+  // above, expressions like:
+  //   var s = "string"   ;
+  // do not parse.
   (returnCall, Expression.StringLit, "pos", "str")
 
 
@@ -943,11 +945,11 @@ var parseSimpleExpr_ = ex(parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit
 function parseSimpleExprForNew(maybeVal){
     if(maybeVal.Just){
         var e = maybeVal[0];
-        return cs
-            ("e_" ,"<-", dotRef, e ,"<|>", bracketRef, e)
+        return ex(cs
+            ("e_" ,"<-", dotRef(e) ,"<|>", bracketRef(e))
             (function(state, scope, k){
                 return parseSimpleExprForNew(Maybe.Just(scope.e_))(state, scope, k);
-            } ,"<|>", return_, e)
+            }) ,"<|>", return_(e))
     }
     if(maybeVal.Nothing){
         return cs
@@ -984,11 +986,11 @@ var parseNewExpr = ex(
 function parseSimpleExpr(maybeVal){
     if(maybeVal.Just){
         var e = maybeVal[0];
-        return cs
-            ("e_" ,"<-", dotRef, e ,"<|>", funcApp, e ,"<|>", bracketRef, e)
+        return ex(cs
+            ("e_" ,"<-", dotRef(e) ,"<|>", funcApp(e) ,"<|>", bracketRef(e))
             (function(state, scope, k){
                 return parseSimpleExpr(Maybe.Just(scope.e_))(state, scope, k);
-            } ,"<|>", return_, e)
+            }) ,"<|>", return_(e))
     }
     if(maybeVal.Nothing){
         return cs
@@ -1010,7 +1012,11 @@ function makeInfixExpr(str, constr){
     var parser = cs
         ("pos" ,"<-", getPosition)
         (lex.reservedOp(str))
-        (ret, function(scope){ return Expression.InfixExpr(scope.pos, constr) })  // points-free, returns a function
+        (ret, function(scope){
+            return function(exp1, exp2){
+                return Expression.InfixExpr(scope.pos, constr, exp1, exp2);
+            }
+        })
     
     return Operator.Infix(parser, Assoc.AssocLeft);
 }
@@ -1116,17 +1122,14 @@ var parseExpression_ =
 //  BracketRef p e1 e2 -> return (LBracket p e1 e2)
 //  otherwise -> fail $ "expeceted l-value at " ++ show p'
 function asLValue(p_, e){
-    if(e.VarRef){
+    if(e.VarRef)
         if(e[1].Id)
             return return_(LValue.LVar(e[0], e[1][1]));
-    }
-    if(e.DotRef){
+    if(e.DotRef)
         if(e[2].Id)
             return return_(LValue.LDot(e[0], e[1], e[2][1]));
-    }
-    if(e.BracketRef){
+    if(e.BracketRef)
         return return_(LValue.LBracket(e[0], e[1], e[2]));
-    }
     return fail("expeceted l-value at " + p_)
 }
 
@@ -1166,12 +1169,6 @@ function hook(fn, ident){
     };
 }
 
-function hookIdent(fnIdent, ident){
-    return function(state, scope, k){
-        return scope[fnIdent](scope[ident])(state, scope, k);
-    };
-}
-
 var unaryAssignExpr = cs
   ("p" ,"<-", getPosition)
   ("prefixInc"  ,"<-", ret, function(scope){ return cs
@@ -1192,7 +1189,8 @@ var unaryAssignExpr = cs
   }})
   ("other"      ,"<-", ret, function(scope){ return cs
                     ("e" ,"<-", parseSimpleExpr, Maybe.Nothing)
-                    (hookIdent, "postfixInc", "e" ,"<|>", hookIdent, "postfixDec", "e" ,"<|>", ret, "e")
+                    (hook, scope.postfixInc, "e" ,"<|>",
+                     hook, scope.postfixDec, "e" ,"<|>", ret, "e")
   })
   (hook, id, "prefixInc" ,"<|>", hook, id, "prefixDec" ,"<|>", hook, id, "other")
 

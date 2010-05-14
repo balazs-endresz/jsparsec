@@ -42,25 +42,13 @@ data(Assoc, ["AssocNone", "AssocLeft", "AssocRight"]);
 //data Operator s u m a   = Infix (ParsecT s u m (a -> a -> a)) Assoc
 //                        | Prefix (ParsecT s u m (a -> a))
 //                        | Postfix (ParsecT s u m (a -> a))
-/*
 function Operator(){}
 data(Operator, [
     ["Infix", Parser, Assoc],
     ["Prefix", Parser],
     ["Postfix", Parser]
 ]);
-*/
 
-//TODO: this should be removed after all primitive parsers have proper types
-function Operator(){}
-data(Operator, [
-    ["Infix", Function, Assoc],
-    ["Prefix", Function],
-    ["Postfix", Function]
-]);
-
-
-//TODO: type decl.
 
 //-- | An @OperatorTable s u m a@ is a list of @Operator s u m a@
 //-- lists. The list is ordered in descending
@@ -111,53 +99,80 @@ data(Operator, [
 //                      -> ParsecT s u m a
 //buildExpressionParser operators simpleExpr = ...
 function buildExpressionParser(operators, simpleExpr){
+    
+    function hook(fn, ident){
+        return function(state, scope, k){
+            return fn(scope[ident])(state, scope, k);
+        };
+    }
+    
+    function splitOp(oper, tuple){
+        if(!(oper instanceof Operator))
+            throw "Type error: expecting type 'Operator' instead of " + oper.constructor;
+        
+        var op = oper[0];
+        var rassoc = tuple[0],
+            lassoc = tuple[1],
+            nassoc = tuple[2],
+            prefix = tuple[3],
+            postfix = tuple[4];
+        
+//      splitOp (Infix op assoc) (rassoc,lassoc,nassoc,prefix,postfix)
+//        = case assoc of
+//            AssocNone  -> (rassoc,lassoc,op:nassoc,prefix,postfix)
+//            AssocLeft  -> (rassoc,op:lassoc,nassoc,prefix,postfix)
+//            AssocRight -> (op:rassoc,lassoc,nassoc,prefix,postfix)
+        if(oper.Infix){
+            var assoc = oper[1];
+            if(assoc.AssocNone)
+                return [rassoc, lassoc, cons(op, nassoc), prefix, postfix];
+            if(assoc.AssocLeft)
+                return [rassoc, cons(op, lassoc), nassoc, prefix, postfix];
+            if(assoc.AssocRight)
+                return [cons(op, rassoc), lassoc, nassoc, prefix, postfix];
+        }
 
-//      makeParser term ops
+//      splitOp (Prefix op) (rassoc,lassoc,nassoc,prefix,postfix)
+//        = (rassoc,lassoc,nassoc,op:prefix,postfix)
+        if(oper.Prefix)
+            return [rassoc, lassoc, nassoc, cons(op, prefix), postfix];
+        
+//      splitOp (Postfix op) (rassoc,lassoc,nassoc,prefix,postfix)
+//        = (rassoc,lassoc,nassoc,prefix,op:postfix)
+        if(oper.Postfix)
+            return [rassoc, lassoc, nassoc, prefix, cons(op, postfix)];
+    }
+    
+    
+//              ambigious assoc op = try $
+//                                  do{ op; fail ("ambiguous use of a " ++ assoc
+//                                                 ++ " associative operator")
+//                                    }
+    function ambigious(assoc, op){
+        return try_(do_(op, fail("ambiguous use of a " + assoc + " associative operator")));
+    }
+
+
     function makeParser(term, ops){
         
-        function hook(fn, ident){
-            return function(state, scope, k){
-                return fn(scope[ident])(state, scope, k);
-            };
-        }
-        
-//        = let (rassoc,lassoc,nassoc
-//               ,prefix,postfix)      = foldr splitOp ([],[],[],[],[]) ops
         var tuple = foldr(splitOp, [[],[],[],[],[]], ops);
+        
         var rassoc = tuple[0],
             lassoc = tuple[1],
             nassoc = tuple[2],
             prefix = tuple[3],
             postfix = tuple[4];
             
-//          rassocOp   = choice rassoc
-//          lassocOp   = choice lassoc
-//          nassocOp   = choice nassoc
-//          prefixOp   = choice prefix  <?> ""
-//          postfixOp  = choice postfix <?> ""
         var rassocOp   = choice(rassoc),
             lassocOp   = choice(lassoc),
             nassocOp   = choice(nassoc),
             prefixOp   = label(choice(prefix), ""),
             postfixOp  = label(choice(postfix), "");
             
-//              ambigious assoc op = try $
-//                                  do{ op; fail ("ambiguous use of a " ++ assoc
-//                                                 ++ " associative operator")
-//                                    }
-        function ambigious(assoc, op){
-            return try_(do_(op, fail("ambiguous use of a " + assoc + " associative operator")));
-        }
-        
-//          ambigiousRight    = ambigious "right" rassocOp
-//          ambigiousLeft     = ambigious "left" lassocOp
-//          ambigiousNon      = ambigious "non" nassocOp
         var ambigiousRight    = ambigious("right", rassocOp),
             ambigiousLeft     = ambigious("left", lassocOp),
             ambigiousNon      = ambigious("non", nassocOp);
             
-//          postfixP   = postfixOp <|> return id
-//          prefixP    = prefixOp <|> return id
         var postfixP   = parserPlus(postfixOp, return_(id)),
             prefixP   = parserPlus(prefixOp, return_(id));
             
@@ -208,7 +223,7 @@ function buildExpressionParser(operators, simpleExpr){
             return [cs("f"  ,"<-", lassocOp)
                       ("y"  ,"<-", termP)
                       (function(state, scope, k){
-                          return lassocP1(scope.f, x, scope.y)(state, scope, k);
+                          return lassocP1(scope.f(x, scope.y))(state, scope, k);
                       })
                     ,"<|>", ambigiousRight
                     ,"<|>", ambigiousNon
@@ -251,44 +266,7 @@ function buildExpressionParser(operators, simpleExpr){
                   ,"<|>", ret, "x"
                   ,"<?>", "operator").resolve();
     }
-    
-    function splitOp(oper, tuple){
-        if(!(oper instanceof Operator))
-            throw "Type error: expecting type 'Operator' instead of " + oper.constructor;
         
-        var op = oper[0];
-        var rassoc = tuple[0],
-            lassoc = tuple[1],
-            nassoc = tuple[2],
-            prefix = tuple[3],
-            postfix = tuple[4];
-        
-//      splitOp (Infix op assoc) (rassoc,lassoc,nassoc,prefix,postfix)
-//        = case assoc of
-//            AssocNone  -> (rassoc,lassoc,op:nassoc,prefix,postfix)
-//            AssocLeft  -> (rassoc,op:lassoc,nassoc,prefix,postfix)
-//            AssocRight -> (op:rassoc,lassoc,nassoc,prefix,postfix)
-        if(oper.Infix){
-            var assoc = oper[1];
-            if(assoc.AssocNone)
-                return [rassoc, lassoc, cons(op, nassoc), prefix, postfix];
-            if(assoc.AssocLeft)
-                return [rassoc, cons(op, lassoc), nassoc, prefix, postfix];
-            if(assoc.AssocRight)
-                return [cons(op, rassoc), lassoc, nassoc, prefix, postfix];
-        }
-
-//      splitOp (Prefix op) (rassoc,lassoc,nassoc,prefix,postfix)
-//        = (rassoc,lassoc,nassoc,op:prefix,postfix)
-        if(oper.Prefix)
-            return [rassoc, lassoc, nassoc, cons(op, prefix), postfix];
-        
-//      splitOp (Postfix op) (rassoc,lassoc,nassoc,prefix,postfix)
-//        = (rassoc,lassoc,nassoc,prefix,op:postfix)
-        if(oper.Postfix)
-            return [rassoc, lassoc, nassoc, prefix, cons(op, postfix)];
-    }
-    
 //  buildExpressionParser operators simpleExpr
 //       = foldl (makeParser) simpleExpr operators
     return foldl(makeParser, simpleExpr, operators);

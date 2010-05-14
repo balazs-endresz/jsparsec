@@ -246,11 +246,14 @@ var parser_id = 0;
 
 function Parser(){}
 
-
 function parserBind(p, f){ 
     return function(state, scope, k){
         return {func:p, args:[state, scope, function(result){
-            return result.success ? k(f(result.ast)) : k(result);
+            if(result.success){
+                return {func:f(result.ast), args:[state, scope, k]}
+            }else{
+                return k(result);
+            }
         }]};
     };
 }
@@ -293,6 +296,8 @@ function bind(name, p){
         return { func: p, args: [state, scope, function(result){
             if(result.success)
                 scope[name] = result.ast;
+            result = extend({}, result);
+            delete result.ast;
             return k(result);
         }]};
     };
@@ -363,36 +368,32 @@ var return_ = parserReturn;
 var pure = return_;
 
 
-//executes two parsers in a sequence 
-//and applies the ast of the first to the ast of the second
-//the ast of the first must be a function
 function ap(a, b){
-    return fmap(function(ast){ return ast[0](ast[1]) }, tokens([a, b]));
+    return do_(bind("a", a), bind("b", b), ret(function(scope){ return scope.a(scope.b) }));
 }
 
-// Parser combinator that passes the AST generated from the parser 'p' 
-// to the function 'f'. The result of 'f' is used as the AST in the result.
-// the function 'f' will be curried automatically
-function parsecMap(f, p){
-    f = curry(f);
-    return function(state, scope, k){
-        return {func:p, args:[state, scope, function(result){
-                if(!result.success)
-                    return k(result);
-                result = extend({}, result);
-                result.ast = f(result.ast);
-                return k(result);
-        }]};
-    };
+//liftM f m1 = do { x1 <- m1; return (f x1) }
+function liftM(f, m1){
+    return do_(bind("x1", m1), returnCall(f, "x1"));
 }
+var parsecMap = liftM;
+var fmap   = parsecMap;
+var liftA  = fmap;
 
-var fmap = parsecMap;
-var liftA = fmap;
-var liftA2 = function(f, a, b   ){ return ap(   fmap(f, a), b)     };
-var liftA3 = function(f, a, b, c){ return ap(ap(fmap(f, a), b), c) };
-var liftM = liftA;
-var liftM2 = liftA2;
-var liftM3 = liftA3;
+//liftM2 f m1 m2 = do { x1 <- m1; x2 <- m2; return (f x1 x2) }
+function liftM2(f, m1, m2){
+    return do_(bind("x1", m1), bind("x2", m2), returnCall(f, "x1", "x2"));
+}
+var liftA2 = liftM2;
+
+//liftM3 f m1 m2 m3 = do { x1 <- m1; x2 <- m2; x3 <- m3; return (f x1 x2 x3) }
+function liftM3(f, m1, m2, m3){
+    return do_(bind("x1", m1), bind("x2", m2), bind("x3", m3),
+               returnCall(f, "x1", "x2", "x3"));
+}
+var liftA3 = liftM3;
+
+
 
 //var skip_fst = function(p1, p2){ return liftA2(const_(id), p1, p2) };
 //function skip_fst(p1, p2){ return do_(p1, p2) }
@@ -424,7 +425,8 @@ function parserPlus(p1, p2){
             
             handleError(result);
             
-            return (result.ast !== undefined) ? {func:k, args: [result]} :
+            return (result.ast !== undefined) ?
+                {func:k, args: [result]} :
                 {func: p2, args: [state, scope, function(result){
                     handleError(result);
                     return k(result);
@@ -454,7 +456,6 @@ function parserPlusN(p1, p2, p3 /* ... */){
 }
 
 var mplus = parserPlus;
-
 
 
 
@@ -490,7 +491,6 @@ function tokens(parsers){
         }]};
     };
 }
-
 
 function _many(onePlusMatch){
     return function(parser){
@@ -528,7 +528,6 @@ function _many(onePlusMatch){
 var many = _many(false);
 
 var many1 = _many(true);
-
 
 //tokenPrim :: (c -> ParseState -> startIndex -> Result) -> (c -> Parser)
 function tokenPrim(fn){
@@ -762,6 +761,11 @@ extend(operators, {
     }   
 });
 
+function lazy(f){
+    return function(state, scope, k){
+        return f()(state, scope, k);
+    }
+}
 
 extend(JSParsec, {
     sequence        : sequence,
@@ -798,6 +802,7 @@ extend(JSParsec, {
     ret             : ret,
     withBound       : withBound,
     returnCall      : returnCall,
+    lazy            : lazy,
     getParserState  : getParserState,
     setParserState  : setParserState,
     tokens          : tokens,
