@@ -107,14 +107,12 @@ function buildExpressionParser(operators, simpleExpr){
     }
     
     function splitOp(oper, tuple){
-        if(!(oper instanceof Operator))
-            throw "Type error: expecting type 'Operator' instead of " + oper.constructor;
         
         var op = oper[0];
-        var rassoc = tuple[0],
-            lassoc = tuple[1],
-            nassoc = tuple[2],
-            prefix = tuple[3],
+        var rassoc  = tuple[0],
+            lassoc  = tuple[1],
+            nassoc  = tuple[2],
+            prefix  = tuple[3],
             postfix = tuple[4];
         
 //      splitOp (Infix op assoc) (rassoc,lassoc,nassoc,prefix,postfix)
@@ -157,10 +155,10 @@ function buildExpressionParser(operators, simpleExpr){
         
         var tuple = foldr(splitOp, [[],[],[],[],[]], ops);
         
-        var rassoc = tuple[0],
-            lassoc = tuple[1],
-            nassoc = tuple[2],
-            prefix = tuple[3],
+        var rassoc  = tuple[0],
+            lassoc  = tuple[1],
+            nassoc  = tuple[2],
+            prefix  = tuple[3],
             postfix = tuple[4];
             
         var rassocOp   = choice(rassoc),
@@ -169,12 +167,12 @@ function buildExpressionParser(operators, simpleExpr){
             prefixOp   = label(choice(prefix), ""),
             postfixOp  = label(choice(postfix), "");
             
-        var ambigiousRight    = ambigious("right", rassocOp),
-            ambigiousLeft     = ambigious("left", lassocOp),
-            ambigiousNon      = ambigious("non", nassocOp);
+        var ambigiousRight = ambigious("right", rassocOp),
+            ambigiousLeft  = ambigious("left" , lassocOp),
+            ambigiousNon   = ambigious("non"  , nassocOp);
             
-        var postfixP   = parserPlus(postfixOp, return_(id)),
-            prefixP   = parserPlus(prefixOp, return_(id));
+        var postfixP  = parserPlus(postfixOp, return_(id)),
+            prefixP   = parserPlus(prefixOp , return_(id));
             
 //              termP      = do{ pre  <- prefixP
 //                             ; x    <- term
@@ -196,7 +194,7 @@ function buildExpressionParser(operators, simpleExpr){
 //                           <|> ambigiousNon
 //                           -- <|> return x
         function rassocP(x){
-            return [cs  ("f"  ,"<-", rassocOp)
+            return ex(cs("f"  ,"<-", rassocOp)
                         ("y"  ,"<-", cs("z"  ,"<-", termP)
                                        (hook, rassocP1, "z")
                         )
@@ -204,7 +202,7 @@ function buildExpressionParser(operators, simpleExpr){
                     ,"<|>", ambigiousLeft
                     ,"<|>", ambigiousNon
                     //,"<|>", return_, x
-                    ].resolve();
+                    );
         }
         
 //              rassocP1 x = rassocP x  <|> return x
@@ -220,15 +218,15 @@ function buildExpressionParser(operators, simpleExpr){
 //                           <|> ambigiousNon
 //                           -- <|> return x
         function lassocP(x){
-            return [cs("f"  ,"<-", lassocOp)
-                      ("y"  ,"<-", termP)
-                      (function(state, scope, k){
-                          return lassocP1(scope.f(x, scope.y))(state, scope, k);
-                      })
-                    ,"<|>", ambigiousRight
-                    ,"<|>", ambigiousNon
-                    //,"<|>", return_, x
-                    ].resolve();
+            return ex(cs("f"  ,"<-", lassocOp)
+                        ("y"  ,"<-", termP)
+                        (function(state, scope, k){
+                            return lassocP1(scope.f(x, scope.y))(state, scope, k);
+                        })
+                        ,"<|>", ambigiousRight
+                        ,"<|>", ambigiousNon
+                        //,"<|>", return_, x
+                    );
         }
         
 //              lassocP1 x = lassocP x <|> return x
@@ -252,7 +250,7 @@ function buildExpressionParser(operators, simpleExpr){
                 ,"<|>", ambigiousLeft
                 ,"<|>", ambigiousNon
                 ,"<|>", ret, function(scope){ return scope.f(x, scope.y) }
-                ).resolve();
+                )
         }
         
 //           in  do{ x <- termP

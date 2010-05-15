@@ -471,7 +471,7 @@ var simpleSpace =
 var oneLineComment =
         cs( try_(string(languageDef.commentLine)) )
           ( skipMany, satisfy(function(c){ return c != '\n' }) )
-          ( return_, null).resolve();
+          ( return_, null)
 
 
 //
@@ -491,7 +491,7 @@ var inCommentSingle
             = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
         ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentSingle )
         ,"<|>", do_( oneOf(startEnd)                       , _inCommentSingle )
-        ,"<?>", "end of comment"].resolve();
+        ,"<?>", "end of comment"]
 
 
 
@@ -507,11 +507,11 @@ var inCommentSingle
 function _inCommentMulti(state, scope, k){ return inCommentMulti(state, scope, k) }
 
 var inCommentMulti
-            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
+            = ex( do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
         ,"<|>", do_( _multiLineComment                     , _inCommentMulti )
         ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentMulti )
         ,"<|>", do_( oneOf(startEnd)                       , _inCommentMulti )
-        ,"<?>", "end of comment"].resolve();
+        ,"<?>", "end of comment")
 
 
 
@@ -677,7 +677,7 @@ var escapeEmpty     = char_('&');
 //                      }
 
 var escapeGap       = cs( many1, space )
-                        ( char_('\\') ,"<?>", "end of string gap").resolve();
+                        ( char_('\\') ,"<?>", "end of string gap")
                         
 
 //  charNum         = do{ code <- decimal
@@ -690,7 +690,7 @@ var charNum         = cs( "code" ,"<-", _decimal
                                       ,"<|>", do_( char_('o'), number(8, octDigit) )
                                       ,"<|>", do_( char_('x'), number(16, hexDigit) )
                         )
-                        ( ret(function(scope){ return toEnum(fromInteger(scope.code)) }) ).resolve();
+                        ( ret(function(scope){ return toEnum(fromInteger(scope.code)) }) )
 
 
 //  charControl     = do{ char '^'
@@ -700,15 +700,15 @@ var charNum         = cs( "code" ,"<-", _decimal
 
 var charControl     = cs( char_('^') )
                         ( "code" ,"<-", upper )
-                        ( ret(function(scope){ return toEnum(fromEnum(scope.code) - fromEnum('A'))  }) ).resolve();
+                        ( ret(function(scope){ return toEnum(fromEnum(scope.code) - fromEnum('A'))  }) )
  
 
 //  -- escape codes
 //  escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
 //                  <?> "escape code"
 
-var escapeCode      = [charEsc ,"<|>", charNum ,"<|>", charAscii ,"<|>", charControl
-                    ,"<?>", "escape code"].resolve();
+var escapeCode      = ex(charEsc ,"<|>", charNum ,"<|>", charAscii ,"<|>", charControl
+                    ,"<?>", "escape code")
 
 
 //  charEscape      = do{ char '\\'; escapeCode }
@@ -726,8 +726,8 @@ var charLetter      = satisfy(function(c){ return (c != '\'') && (c != '\\') && 
 //  characterChar   = charLetter <|> charEscape
 //                  <?> "literal character"
 
-var characterChar   = [charLetter ,"<|>", charEscape
-                    ,"<?>", "literal character"].resolve();
+var characterChar   = ex(charLetter ,"<|>", charEscape
+                    ,"<?>", "literal character")
 
 
 //  charLiteral     = lexeme (between (char '\'')
@@ -735,10 +735,10 @@ var characterChar   = [charLetter ,"<|>", charEscape
 //                                    characterChar )
 //                  <?> "character"
 
-var charLiteral     = [lexeme, [between, char_('\''), 
+var charLiteral     = ex(lexeme, [between, char_('\''), 
                                     [char_('\'') ,"<?>", "end of character"],
                                     characterChar]
-                    ,"<?>", "character"].resolve();
+                    ,"<?>", "character");
 
 
 //
@@ -752,17 +752,17 @@ var stringEscape    = cs( char_('\\') )
                         (         cs( escapeGap   ) ( return_, Maybe.Nothing )
                           ,"<|>", cs( escapeEmpty ) ( return_, Maybe.Nothing )
                           ,"<|>", cs( "esc" ,"<-", escapeCode) ( returnCall, Maybe.Just, "esc" )
-                        ).resolve();
+                        )
 
 
 //  stringChar      =   do{ c <- stringLetter; return (Just c) }
 //                  <|> stringEscape
 //                  <?> "string character"
 
-var stringChar      = [cs( "c" ,"<-", stringLetter )
+var stringChar      = ex(cs( "c" ,"<-", stringLetter )
                          ( returnCall, Maybe.Just, "c" )
                       ,"<|>", stringEscape
-                      ,"<?>", "string character"].resolve();
+                      ,"<?>", "string character");
 
 
 //  stringLiteral   = lexeme (
@@ -773,13 +773,13 @@ var stringChar      = [cs( "c" ,"<-", stringLetter )
 //                      }
 //                    <?> "literal string")
 
-var stringLiteral   = lexeme(
+var stringLiteral   = ex(lexeme,
                           [ cs( "str", "<-", between, char_('"'),
                                                       [char_('"') ,"<?>", "end of string"],
                                                       [many, stringChar]
                                )
                                (ret, function(scope){ return foldr(curry(maybe)(id, curry(cons)), "", scope.str) })
-                          ,"<?>", "literal string"].resolve()
+                          ,"<?>", "literal string"]
                       );
 
 
@@ -801,7 +801,7 @@ function number(base, baseDigit){
                         return foldl(function(x, d){
                                   return base * x + toInteger(digitToInt(d));
                               }, 0, scope.digits);
-             }).resolve();
+             })
 }
 
 
@@ -812,8 +812,8 @@ function number(base, baseDigit){
 function _decimal(state, scope, k){ return decimal(state, scope, k) }
 
 var decimal         = number(10, digit);
-var hexadecimal     = cs( oneOf, "xX" ) ( number, 16, hexDigit ).resolve();
-var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  ).resolve();
+var hexadecimal     = cs( oneOf, "xX" ) ( number, 16, hexDigit )
+var octal           = cs( oneOf, "oO" ) ( number, 8, octDigit  )
 
 
 
@@ -830,10 +830,10 @@ function _op(d, f){
     return (f + fromIntegral(digitToInt(d))) / 10.0;
 }
 
-var fraction        = [ cs( char_('.'))
-                          ( "digits" ,"<-", many1, digit ,"<?>", "fraction")
-                          ( ret, function(scope){ return foldr(_op, 0.0, scope.digits) })
-                        ,"<?>", "fraction"].resolve();
+var fraction        = ex( cs( char_('.'))
+                            ( "digits" ,"<-", many1, digit ,"<?>", "fraction")
+                            ( ret, function(scope){ return foldr(_op, 0.0, scope.digits) })
+                        ,"<?>", "fraction")
 
 
 
@@ -842,10 +842,9 @@ var fraction        = [ cs( char_('.'))
 //                  <|> (char '+' >> return id)
 //                  <|> return id
 
-var sign            = [[char_('-') ,">>", return_, negate]
-                       ,"<|>", [char_('+') ,">>", return_, id]
-                       ,"<|>", return_, id
-                      ].resolve();
+var sign            = ex([char_('-') ,">>", return_, negate]
+                            ,"<|>", [char_('+') ,">>", return_, id]
+                            ,"<|>", return_, id);
 
 
 //
@@ -863,11 +862,11 @@ function power(e){
     return (e < 0) ?  1.0 / power(-e) :  fromInteger(Math.pow(10,e));
 }
 
-var exponent_       = [ cs( oneOf, "eE" )
-                          ( "f" ,"<-", sign )
-                          ( "e" ,"<-", decimal ,"<?>", "exponent" )
-                          ( returnCall, power, "f", "e")
-                      ,"<?>", "exponent"].resolve();
+var exponent_       = ex( cs( oneOf, "eE" )
+                            ( "f" ,"<-", sign )
+                            ( "e" ,"<-", decimal ,"<?>", "exponent" )
+                            ( returnCall, power, "f", "e")
+                        ,"<?>", "exponent");
 
 
 
@@ -881,14 +880,14 @@ var exponent_       = [ cs( oneOf, "eE" )
 //                      }
 
 function fractExponent(n){
-    return [
+    return ex(
           cs( "fract" ,"<-", fraction )
             ( "expo"  ,"<-", option, 1.0, exponent_ )
             ( ret, function(scope){ return fromInteger(n + scope.fract) * scope.expo })
         ,"<|>",
           cs( "expo", "<-", exponent_ )
             ( ret, function(scope){ return fromInteger(n) * scope.expo })
-    ].resolve();
+    );
 }
 
 //  -- floats
@@ -897,7 +896,7 @@ function fractExponent(n){
 //                      }
 
 var floating        = cs( "n" ,"<-", decimal)
-                        ( function(state, scope, k){ return fractExponent(scope.n)(state, scope, k) }).resolve();
+                        ( function(state, scope, k){ return fractExponent(scope.n)(state, scope, k) })
 
 
 //  fractFloat n    = do{ f <- fractExponent n
@@ -906,7 +905,7 @@ var floating        = cs( "n" ,"<-", decimal)
 
 function fractFloat(n){
     return cs( "f" ,"<-", fractExponent, n)
-             ( returnCall, Either.Right, "f").resolve();
+             ( returnCall, Either.Right, "f")
 }
 
 
@@ -919,7 +918,7 @@ function fractFloat(n){
 var decimalFloat    = cs( "n" ,"<-", decimal )
                         ( function(state, scope, k){ 
                                return option(Either.Left(scope.n), fractFloat(scope.n))(state, scope, k);
-                        }).resolve();
+                        })
 
 
 //  zeroNumFloat    =  do{ n <- hexadecimal <|> octal
@@ -930,12 +929,12 @@ var decimalFloat    = cs( "n" ,"<-", decimal )
 //                  <|> return (Left 0)
 
 
-var zeroNumFloat    =  [ cs( "n" ,"<-", hexadecimal ,"<|>", octal )
+var zeroNumFloat    = ex(cs( "n" ,"<-", hexadecimal ,"<|>", octal )
                            ( returnCall, Either.Left, "n" )
                        ,"<|>", decimalFloat
                        ,"<|>", fractFloat(0)
                        ,"<|>", return_, Either.Left(0)
-                       ].resolve();
+                       );
 
 
 
@@ -945,10 +944,10 @@ var zeroNumFloat    =  [ cs( "n" ,"<-", hexadecimal ,"<|>", octal )
 //                      }
 //                    <|> decimalFloat
 
-var natFloat        = [do_( char_('0'),
+var natFloat        = ex(do_( char_('0'),
                             zeroNumFloat
-                          )
-                      ,"<|>", decimalFloat].resolve();
+                            )
+                      ,"<|>", decimalFloat);
 
 
 
@@ -957,14 +956,14 @@ var natFloat        = [do_( char_('0'),
 //                      }
 //                    <?> ""
 
-var zeroNumber      = [ cs( char_, '0')
-                          ( hexadecimal ,"<|>", octal ,"<|>", decimal ,"<|>", return_, 0 )
-                      ,"<?>", ""].resolve();
+var zeroNumber      = ex( cs( char_, '0')
+                            ( hexadecimal ,"<|>", octal ,"<|>", decimal ,"<|>", return_, 0 )
+                      ,"<?>", "");
 
 
 //  nat             = zeroNumber <|> decimal
 
-var nat             = [zeroNumber ,"<|>", decimal].resolve();
+var nat             = parserPlus(zeroNumber, decimal);
 
 //  -- integers and naturals
 //  int             = do{ f <- lexeme sign
@@ -1005,10 +1004,10 @@ var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 //        }
 
 function reservedOp(name){
-    return [lexeme ,"$", try_ ,"$",
+    return ex(lexeme ,"$", try_ ,"$",
                 cs( string(name) ) 
                   ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
-            ].resolve();
+            );
 }
 
 
@@ -1020,10 +1019,10 @@ function reservedOp(name){
 //      <?> "operator"
 
 var oper =
-        [ cs( "c"  ,"<-", languageDef.opStart )
-            ( "cs" ,"<-", many, languageDef.opLetter )
-            ( returnCall, consJoin, "c", "cs" )
-         ,"<?>", "operator"].resolve();
+        ex(cs( "c"  ,"<-", languageDef.opStart )
+             ( "cs" ,"<-", many, languageDef.opLetter )
+             ( returnCall, consJoin, "c", "cs" )
+         ,"<?>", "operator");
 
 
 //  isReservedOp name =
@@ -1043,12 +1042,12 @@ function isReservedOp(name){
 //        }
 
 var operator =
-        [lexeme ,"$", try_ ,"$",
-        cs( "name" ,"<-", oper )
-          ( function(state, scope, k){
+        ex(lexeme ,"$", try_ ,"$",
+            cs( "name" ,"<-", oper )
+            ( function(state, scope, k){
                     return (isReservedOp(scope.name) ? 
                         unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope, k);
-          })].resolve();
+          }));
 
 
 
@@ -1096,10 +1095,10 @@ function caseString(name){
 //        }
 
 function reserved(name){
-    return [lexeme ,"$", try_ ,"$",
-            cs( caseString(name) )
-              ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
-            ].resolve();
+    return ex(lexeme ,"$", try_ ,"$",
+              cs( caseString(name) )
+                ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
+            );
 }
 
 
@@ -1111,10 +1110,10 @@ function reserved(name){
 //      <?> "identifier"
 
 var ident
-        = [ cs( "c"  ,"<-", languageDef.identStart )
-              ( "cs" ,"<-", many, languageDef.identLetter )
-              ( returnCall, consJoin, "c", "cs" )
-           ,"<?>", "identifier"].resolve();
+        = ex( cs( "c"  ,"<-", languageDef.identStart )
+                ( "cs" ,"<-", many, languageDef.identLetter )
+                ( returnCall, consJoin, "c", "cs" )
+           ,"<?>", "identifier");
 
 
 //  isReserved names name
@@ -1164,14 +1163,15 @@ function isReservedName(name){
 //        }
 
 var identifier =
-        [lexeme ,"$", try_ ,"$",
-        cs( "name" ,"<-", ident )
-          ( function(state, scope, k){
-                return ( isReservedName(scope.name) ? 
-                            unexpected("reserved word " + scope.name) : 
-                            return_(scope.name)
-                        )(state, scope, k);
-          })].resolve();
+        ex(lexeme ,"$", try_ ,"$",
+            cs( "name" ,"<-", ident )
+              ( function(state, scope, k){
+                    return ( isReservedName(scope.name) ? 
+                                unexpected("reserved word " + scope.name) : 
+                                return_(scope.name)
+                            )(state, scope, k);
+              })
+        );
 
 
 //  theReservedNames

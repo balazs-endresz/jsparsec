@@ -480,15 +480,27 @@ var parseFunctionStmt = cs
 //  <|> parseVarDeclStmt  <|> parseFunctionStmt
 //  -- labelled, expression and the error message always go last, in this order
 //  <|> parseLabelledStmt <|> parseExpressionStmt <?> "statement"
-parseStatement = ex(parseIfStmt ,"<|>", parseSwitchStmt ,"<|>", parseWhileStmt 
-  ,"<|>", parseDoWhileStmt ,"<|>", parseContinueStmt ,"<|>", parseBreakStmt 
-  ,"<|>", parseBlockStmt ,"<|>", parseEmptyStmt ,"<|>", parseForInStmt ,"<|>", parseForStmt
-  ,"<|>", parseTryStmt ,"<|>", parseThrowStmt ,"<|>", parseReturnStmt ,"<|>", parseWithStmt
-  ,"<|>", parseVarDeclStmt  ,"<|>", parseFunctionStmt
-  // labelled, expression and the error message always go last, in this order
-  ,"<|>", parseLabelledStmt ,"<|>", parseExpressionStmt ,"<?>", "statement");
-
-
+parseStatement = ex(
+    parseIfStmt ,"<|>",
+    parseSwitchStmt ,"<|>",
+    parseWhileStmt ,"<|>",
+    parseDoWhileStmt ,"<|>",
+    parseContinueStmt ,"<|>",
+    parseBreakStmt ,"<|>",
+    parseBlockStmt ,"<|>",
+    parseEmptyStmt ,"<|>",
+    parseForInStmt ,"<|>",
+    parseForStmt ,"<|>",
+    parseTryStmt ,"<|>",
+    parseThrowStmt ,"<|>",
+    parseReturnStmt ,"<|>",
+    parseWithStmt ,"<|>",
+    parseVarDeclStmt  ,"<|>",
+    parseFunctionStmt ,"<|>",
+    // labelled, expression and the error message always go last, in this order
+    parseLabelledStmt ,"<|>",
+    parseExpressionStmt ,"<?>",
+"statement");
 
 //--{{{ Expressions
 
@@ -721,7 +733,7 @@ var parseFlags = cs
         return f( elem('g', scope.flags), elem('i', scope.flags) );
     }
   })
-var parseEscape = [char_('\\') ,">>", anyChar].resolve();
+var parseEscape = ex(char_('\\') ,">>", anyChar).resolve();
 var parseChar = noneOf("/");
 var _parseRe = function(state, scope, k){ return parseRe(state, scope, k) }
 var parseRe = ex([char_('/') ,">>", return_, ""] ,"<|>", 
@@ -738,8 +750,11 @@ var parseRegexpLit = cs
   ("pat" ,"<-", parseRe) //many1 parseChar
   ("flags" ,"<-", parseFlags)
   (spaces) // crucial for Parsec.Token parsers
-  (ret, function(scope){ return scope.flags(Expression.RegexpLit(scope.pos, scope.pat)) })
-
+  (ret, function(scope){
+        return scope.flags(function(global, ci){
+            return Expression.RegexpLit(scope.pos, scope.pat, global, ci);
+        });
+  })
 
 //parseObjectLit:: ExpressionParser st
 //parseObjectLit =
@@ -1234,8 +1249,8 @@ var parseTernaryExpr = cs
     if(e_.Nothing)
         res = return_(scope.e);
     if(e_.Just){
-        var l = e_[0],
-            r = e_[1];
+        var l = e_[0][0],
+            r = e_[0][1];
         res = cs("p" ,"<-", getPosition)
                  (ret, function(scope){ return Expression.CondExpr(scope.p, e, l, r) })
     }
@@ -1257,20 +1272,20 @@ var parseTernaryExpr = cs
 //  (reservedOp "&=" >> return OpAssignBAnd) <|>
 //  (reservedOp "^=" >> return OpAssignBXor) <|>
 //  (reservedOp "|=" >> return OpAssignBOr)
-var assignOp = [
-  [lex.reservedOp, str("=")   ,">>", return_, AssignOp.OpAssign] ,"<|>",
-  [lex.reservedOp, str("+=")  ,">>", return_, AssignOp.OpAssignAdd] ,"<|>",
-  [lex.reservedOp, str("-=")  ,">>", return_, AssignOp.OpAssignSub] ,"<|>",
-  [lex.reservedOp, str("*=")  ,">>", return_, AssignOp.OpAssignMul] ,"<|>",
-  [lex.reservedOp, str("/=")  ,">>", return_, AssignOp.OpAssignDiv] ,"<|>",
-  [lex.reservedOp, str("%=")  ,">>", return_, AssignOp.OpAssignMod] ,"<|>",
-  [lex.reservedOp, str("<<=") ,">>", return_, AssignOp.OpAssignLShift] ,"<|>",
-  [lex.reservedOp, str(">>=") ,">>", return_, AssignOp.OpAssignSpRShift] ,"<|>",
-  [lex.reservedOp, str(">>>="),">>", return_, AssignOp.OpAssignZfRShift] ,"<|>",
-  [lex.reservedOp, str("&=")  ,">>", return_, AssignOp.OpAssignBAnd] ,"<|>",
-  [lex.reservedOp, str("^=")  ,">>", return_, AssignOp.OpAssignBXor] ,"<|>",
-  [lex.reservedOp, str("|=")  ,">>", return_, AssignOp.OpAssignBOr]
-].resolve();
+var assignOp = ex(
+  [lex.reservedOp("=")   ,">>", return_, AssignOp.OpAssign     ] ,"<|>",
+  [lex.reservedOp("+=")  ,">>", return_, AssignOp.OpAssignAdd  ] ,"<|>",
+  [lex.reservedOp("-=")  ,">>", return_, AssignOp.OpAssignSub  ] ,"<|>",
+  [lex.reservedOp("*=")  ,">>", return_, AssignOp.OpAssignMul  ] ,"<|>",
+  [lex.reservedOp("/=")  ,">>", return_, AssignOp.OpAssignDiv  ] ,"<|>",
+  [lex.reservedOp("%=")  ,">>", return_, AssignOp.OpAssignMod  ] ,"<|>",
+  [lex.reservedOp("<<=") ,">>", return_, AssignOp.OpAssignLShift   ] ,"<|>",
+  [lex.reservedOp(">>=") ,">>", return_, AssignOp.OpAssignSpRShift ] ,"<|>",
+  [lex.reservedOp(">>>="),">>", return_, AssignOp.OpAssignZfRShift ] ,"<|>",
+  [lex.reservedOp("&=")  ,">>", return_, AssignOp.OpAssignBAnd ] ,"<|>",
+  [lex.reservedOp("^=")  ,">>", return_, AssignOp.OpAssignBXor ] ,"<|>",
+  [lex.reservedOp("|=")  ,">>", return_, AssignOp.OpAssignBOr  ]
+);
 
 //assignExpr :: ExpressionParser st
 //assignExpr = do
@@ -1283,13 +1298,13 @@ var assignOp = [
 //        return (AssignExpr p op lhs rhs)
 //  assign <|> (return lhs)
 assignExpr = cs
-  ("p" ,"<-", getPosition)
+  ("p"   ,"<-", getPosition)
   ("lhs" ,"<-", parseTernaryExpr)
-  (cs("op" ,"<-", assignOp)
+  (cs("op"  ,"<-", assignOp)
      ("lhs" ,"<-", function(state, scope, k){
         return asLValue(scope.scope.p, scope.scope.lhs)(state, scope, k);
      })
-     ("rhs" ,"<-", assignExpr)
+     ("rhs" ,"<-", lazy(function(){ return assignExpr }))
      (ret, function(scope){ return Expression.AssignExpr(scope.scope.p, scope.op, scope.lhs, scope.rhs) })
   ,"<|>", ret, "lhs")
 
