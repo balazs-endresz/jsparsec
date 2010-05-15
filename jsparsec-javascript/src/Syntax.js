@@ -142,7 +142,9 @@ data(LValue, [
 
 data(Expression, [
     ["StringLit", "a", String]
-   ,["RegexpLit", "a", String, Boolean /* global? */, Boolean /* case-insensitive? */]
+   ,["RegexpLit", "a", String,
+                       Boolean, //global?
+                       Boolean] // case-insensitive?
    ,["NumLit"   , "a", Number]
    ,["IntLit"   , "a", Number]
    ,["BoolLit"  , "a", Boolean]
@@ -152,8 +154,10 @@ data(Expression, [
    ,["ThisRef"  , "a"]
    ,["VarRef"   , "a", Id]
    ,["DotRef"   , "a", Expression, Id]
-   ,["BracketRef"   , "a", Expression /* container */, Expression /* key */]
-   ,["NewExpr"      , "a", Expression /* constructor */, Array]
+   ,["BracketRef"   , "a", Expression, // container
+                           Expression] // key
+   ,["NewExpr"      , "a", Expression, // constructor
+                           Array]
    ,["PrefixExpr"   , "a", PrefixOp, Expression]
    ,["UnaryAssignExpr", "a", UnaryAssignOp, LValue]
    ,["InfixExpr"    , "a", InfixOp, Expression, Expression]
