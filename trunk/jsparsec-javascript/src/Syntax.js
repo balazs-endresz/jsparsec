@@ -165,7 +165,7 @@ data(Expression, [
    ,["AssignExpr"   , "a", AssignOp, LValue, Expression]
    ,["ParenExpr", "a", Expression]
    ,["ListExpr" , "a", Array]
-   ,["CallExpr" , "a", Expression, Expression]
+   ,["CallExpr" , "a", Expression, Array]
    ,["FuncExpr" , "a", Maybe, Array, Statement] //funcexprs are optionally named
 ]);
 

@@ -1,7 +1,7 @@
 /** @license
  * JavaScript analysis tools for JSParsec
  * 
- * Version: 0.0.1
+ * Version: 0.0.2
  * 
  * http://code.google.com/p/jsparsec/
  * 
@@ -195,7 +195,7 @@ data(Expression, [
    ,["AssignExpr"   , "a", AssignOp, LValue, Expression]
    ,["ParenExpr", "a", Expression]
    ,["ListExpr" , "a", Array]
-   ,["CallExpr" , "a", Expression, Expression]
+   ,["CallExpr" , "a", Expression, Array]
    ,["FuncExpr" , "a", Maybe, Array, Statement] //funcexprs are optionally named
 ]);
 
@@ -477,6 +477,8 @@ var parseStatement  = lazy(function(){ return parseStatement  })
 var parseParenExpr  = lazy(function(){ return parseParenExpr  })
 var parseExpression = lazy(function(){ return parseExpression })
 var assignExpr = parseExpression;
+var parseNewExpr    = lazy(function(){ return parseNewExpr    })
+
 
 //--{{{ Statements
 //
@@ -729,6 +731,32 @@ var parseForInStmt = cs
     return Statement.ForInStmt(scope.pos, scope.init_expr[0], scope.init_expr[1], scope.body);
   })
 
+//parseVarDecl = do
+//  pos <- getPosition
+//  id <- identifier
+//  init <- (reservedOp "=" >> liftM Just parseExpression) <|> (return Nothing)
+//  return (VarDecl pos id init)
+var parseVarDecl = cs
+  ("pos" ,"<-", getPosition)
+  ("id" ,"<-", identifier)
+  ("init" ,"<-", [lex.reservedOp("=") ,">>", liftM, Maybe.Just, parseExpression]
+                  ,"<|>", return_(Maybe.Nothing))
+  (returnCall, VarDecl.VarDecl, "pos", "id", "init")
+
+
+//parseVarDeclStmt:: StatementParser st
+//parseVarDeclStmt = do 
+//  pos <- getPosition
+//  reserved "var"
+//  decls <- parseVarDecl `sepBy` comma
+//  optional semi
+//  return (VarDeclStmt pos decls)
+var parseVarDeclStmt = cs 
+  ("pos" ,"<-", getPosition)
+  (lex.reserved, "var")
+  ("decls" ,"<-", parseVarDecl, op(sepBy), lex.comma)
+  (optional, lex.semi)
+  (returnCall, Statement.VarDeclStmt, "pos",  "decls")
 
 //parseForStmt:: StatementParser st
 //parseForStmt =
@@ -843,33 +871,6 @@ var parseWithStmt = cs
   (returnCall, Statement.WithStmt, "pos", "context", "stmt")
 
 
-//parseVarDecl = do
-//  pos <- getPosition
-//  id <- identifier
-//  init <- (reservedOp "=" >> liftM Just parseExpression) <|> (return Nothing)
-//  return (VarDecl pos id init)
-var parseVarDecl = cs
-  ("pos" ,"<-", getPosition)
-  ("id" ,"<-", identifier)
-  ("init" ,"<-", [lex.reservedOp("=") ,">>", liftM, Maybe.Just, parseExpression] ,"<|>", return_(Maybe.Nothing))
-  (returnCall, VarDecl.VarDecl, "pos", "id", "init")
-
-
-//parseVarDeclStmt:: StatementParser st
-//parseVarDeclStmt = do 
-//  pos <- getPosition
-//  reserved "var"
-//  decls <- parseVarDecl `sepBy` comma
-//  optional semi
-//  return (VarDeclStmt pos decls)
-var parseVarDeclStmt = cs 
-  ("pos" ,"<-", getPosition)
-  (lex.reserved, "var")
-  ("decls" ,"<-", parseVarDecl, op(sepBy), lex.comma)
-  (optional, lex.semi)
-  (returnCall, Statement.VarDeclStmt, "pos",  "decls")
-
-
 //parseFunctionStmt:: StatementParser st
 //parseFunctionStmt = do
 //  pos <- getPosition
@@ -894,26 +895,26 @@ var parseFunctionStmt = cs
 //  -- labelled, expression and the error message always go last, in this order
 //  <|> parseLabelledStmt <|> parseExpressionStmt <?> "statement"
 parseStatement = ex(
-    parseIfStmt ,"<|>",
-    parseSwitchStmt ,"<|>",
-    parseWhileStmt ,"<|>",
-    parseDoWhileStmt ,"<|>",
-    parseContinueStmt ,"<|>",
-    parseBreakStmt ,"<|>",
-    parseBlockStmt ,"<|>",
-    parseEmptyStmt ,"<|>",
-    parseForInStmt ,"<|>",
-    parseForStmt ,"<|>",
-    parseTryStmt ,"<|>",
-    parseThrowStmt ,"<|>",
-    parseReturnStmt ,"<|>",
-    parseWithStmt ,"<|>",
-    parseVarDeclStmt  ,"<|>",
-    parseFunctionStmt ,"<|>",
+            parseIfStmt
+    ,"<|>", parseSwitchStmt
+    ,"<|>", parseWhileStmt
+    ,"<|>", parseDoWhileStmt
+    ,"<|>", parseContinueStmt
+    ,"<|>", parseBreakStmt
+    ,"<|>", parseBlockStmt
+    ,"<|>", parseEmptyStmt
+    ,"<|>", parseForInStmt
+    ,"<|>", parseForStmt
+    ,"<|>", parseTryStmt
+    ,"<|>", parseThrowStmt
+    ,"<|>", parseReturnStmt
+    ,"<|>", parseWithStmt
+    ,"<|>", parseVarDeclStmt
+    ,"<|>", parseFunctionStmt 
     // labelled, expression and the error message always go last, in this order
-    parseLabelledStmt ,"<|>",
-    parseExpressionStmt ,"<?>",
-"statement");
+    ,"<|>", parseLabelledStmt 
+    ,"<|>", parseExpressionStmt
+    ,"<?>", "statement");
 
 //--{{{ Expressions
 
@@ -1154,7 +1155,7 @@ var parseRe = ex([char_('/') ,">>", return_, ""] ,"<|>",
      ("ch" ,"<-", anyChar) // TOOD: too lenient
      ("rest" ,"<-", _parseRe)
      (ret, function(scope){ return '\\' + scope.ch + scope.rest }) ,"<|>",
-  [liftM2, cons, anyChar, parseRe]
+  [liftM2, cons, anyChar, _parseRe]
 );
 
 var parseRegexpLit = cs
@@ -1333,7 +1334,7 @@ function dotRef(e){
 }
 
 function funcApp(e){
-    function cstr(pos, key, args){ return Expression.CallExpr(pos, e, args) }   
+    function cstr(pos, args){ return Expression.CallExpr(pos, e, args) }   
     return ex([lex.parens ,"$", withPos, cstr, [parseExpression ,op(sepBy), lex.comma]]
             ,"<?>", "(function application)");
 }
@@ -1402,7 +1403,7 @@ function parseSimpleExprForNew(maybeVal){
 //      arguments <- (try (parens (parseExpression `sepBy` comma))) <|> (return [])
 //      return (NewExpr pos constructor arguments)) <|>
 //  parseSimpleExpr'
-var parseNewExpr = ex(
+parseNewExpr = ex(
   cs("pos" ,"<-", getPosition)
      (lex.reserved, "new")
      ("constructor_" ,"<-", parseSimpleExprForNew, Maybe.Nothing) // right-associativity
@@ -1616,11 +1617,15 @@ var unaryAssignExpr = cs
   })
   ("postfixInc" ,"<-", ret, function(scope){ return function(e){ return cs
                     (lex.reservedOp("++"))
-                    (liftM, [Expression.UnaryAssignExpr, scope.p, UnaryAssignOp.PostfixInc], [asLValue, scope.p, e])
+                    (liftM, function(lVal){
+                        return Expression.UnaryAssignExpr(scope.p, UnaryAssignOp.PostfixInc, lVal)
+                    }, [asLValue, scope.p, e])
   }})
   ("postfixDec" ,"<-", ret, function(scope){ return function(e){ return cs
                     (lex.reservedOp("--"))
-                    (liftM, [Expression.UnaryAssignExpr, scope.p, UnaryAssignOp.PostfixDec], [asLValue, scope.p, e])
+                    (liftM, function(lVal){
+                        return Expression.UnaryAssignExpr(scope.p, UnaryAssignOp.PostfixDec, lVal)
+                    }, [asLValue, scope.p, e])
   }})
   ("other"      ,"<-", ret, function(scope){ return cs
                     ("e" ,"<-", parseSimpleExpr, Maybe.Nothing)
@@ -1729,7 +1734,7 @@ parseExpression = assignExpr;
 //parseListExpr =
 //  liftM2 ListExpr getPosition (assignExpr `sepBy1` comma)
 parseListExpr =
-    liftM2(Expression.ListExpr, getPosition, sepBy (assignExpr, lex.comma));
+    liftM2(Expression.ListExpr, getPosition, sepBy1(assignExpr, lex.comma));
 
 
 //parseScript:: CharParser state (JavaScript SourcePos)
