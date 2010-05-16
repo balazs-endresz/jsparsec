@@ -1,7 +1,7 @@
 /** @license
  * JavaScript analysis tools for JSParsec
  * 
- * Version: 0.0.1
+ * Version: 0.0.2
  * 
  * http://code.google.com/p/jsparsec/
  * 

@@ -432,10 +432,12 @@ function adtToString(type){
             for(var name in rec){
                 var item = (type ? (rec[name].name || rec[name]) : this[name]);
                 if(!type && (item instanceof Function))
-                    item = item.constructor != Function ? item.constructor.name : "Function(" + item.name + ")";
+                    item = (item.constructor != Function) ?
+                                        item.constructor.name :
+                                        "Function(" + item.name + ")";
                 acc.push(name + " :: " + item );
             }
-            var indent = replicate(this._dataConstructor.length + 2," ").join("");
+            var indent = replicate(this._dataConstructor.length + 2, " ").join("");
             acc = "{" + acc.join("\n" + indent + ",") + "\n" + indent +"}";
         }else{
             for(var i = 0; i in this; i++)
@@ -461,8 +463,8 @@ function data(type, constr){
     for(var i = 0, l = constr.length; i < l; ++i){
         var single = typeof constr[i] != "object",
             name =  single  ? constr[i] : constr[i][0];
-        if(name in {})
-            throw "The name of the data constructor can't be a property of Object.prototype as well!";
+        if(name in type)
+            throw "The name of the data constructor (" + name + ") is invalid!";
 
         type[name] = single ? value(name)() : value(name, slice(constr[i], 1));
         if(!single)
