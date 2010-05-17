@@ -449,12 +449,12 @@ function readHex(str){
 //chr.fst.head.readHex
 function toUnicodeString(charArrayOrStr){
     var nums = charArrayOrStr.join ? charArrayOrStr.join("") : charArrayOrStr;
-    return eval("'\\u" + nums + "'"); //TODO
+    return String.fromCharCode(parseInt(nums, 16));
 }
 
 //\fst snd -> (chr.fst.head.readHex) (fst:snd:"")
 function toAsciiString(fst, snd){
-    return eval("'\\x" + fst + snd + "'"); //TODO
+    return String.fromCharCode(parseInt("" + fst + snd, 16));
 }
 
 var round = Math.round;
