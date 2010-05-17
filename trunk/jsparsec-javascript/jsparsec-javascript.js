@@ -440,14 +440,23 @@ var lex = makeTokenParser(javascriptDef);
 //import Data.Char
 
 
-//chr.fst.head.readHex
-var cfhrh = id; //TODO
-
 var error = id; //TODO
 
 function readHex(str){
-    return parseInt(str.join ? str.join("") : str, 16); //TODO
+    return parseInt(str.join ? str.join("") : str, 16);
 }
+
+//chr.fst.head.readHex
+function toUnicodeString(charArrayOrStr){
+    var nums = charArrayOrStr.join ? charArrayOrStr.join("") : charArrayOrStr;
+    return eval("'\\u" + nums + "'"); //TODO
+}
+
+//\fst snd -> (chr.fst.head.readHex) (fst:snd:"")
+function toAsciiString(fst, snd){
+    return eval("'\\x" + fst + snd + "'"); //TODO
+}
+
 var round = Math.round;
 
 var getPosition = getParserState;
@@ -944,7 +953,7 @@ var parseThisRef = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "this")
   (returnCall, Expression.ThisRef, "pos")
-
+//ex(Expression.ThisRef ,"<$>", [getPosition ,"<*", lex.reserved, "this"])
 
 //parseNullLit:: ExpressionParser st
 //parseNullLit = do
@@ -955,6 +964,7 @@ var parseNullLit = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "null")
   (returnCall, Expression.NullLit, "pos")
+//ex(Expression.NullLit ,"<$>", [getPosition ,"<*", lex.reserved, "null"])
 
 
 //parseBoolLit:: ExpressionParser st
@@ -1033,7 +1043,7 @@ var parseAsciiHexChar = cs
   (char_, 'x')
   ("d1" ,"<-", hexDigit)
   ("d2" ,"<-", hexDigit)
-  (ret, function(scope){ return cfhrh(scope.d1 + scope.d2 + "") })
+  (returnCall, toAsciiString, "d1", "d2")
 
 
 //parseUnicodeHexChar = do
@@ -1042,7 +1052,7 @@ var parseAsciiHexChar = cs
 //        (sequence [hexDigit,hexDigit,hexDigit,hexDigit])
 var parseUnicodeHexChar = cs
   (char_('u'))
-  (liftM, cfhrh, sequence([hexDigit, hexDigit, hexDigit, hexDigit]))
+  (liftM, toUnicodeString, sequence([hexDigit, hexDigit, hexDigit, hexDigit]))
 
 
 //isWhitespace ch = ch `elem` " \t"
