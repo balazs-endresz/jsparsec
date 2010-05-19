@@ -310,6 +310,19 @@ function lookup(key, arr){
     return Maybe.Nothing;
 }
 
+function readHex(str){
+    return parseInt(str.join ? str.join("") : str, 16);
+}
+
+function readOct(str){
+    return parseInt(str.join ? str.join("") : str, 8);
+}
+
+var chr = String.fromCharCode;
+
+var round = Math.round;
+
+
 function namespace(){
     var o, d;
     map(function(v) {
@@ -372,5 +385,9 @@ extend(JSParsec, {
     fst         : fst,
     snd         : snd,
     uncurry     : uncurry,
-    lookup      : lookup
+    lookup      : lookup,
+    readHex     : readHex,
+    readOct     : readOct,
+    chr         : chr,
+    round       : round
 });

@@ -432,7 +432,7 @@ function notFollowedBy(p){
         parserPlus(
             do_(
                 bind("c", try_(p)),
-                unexpected("c")
+                unexpectedIdent("c")
             ),
             return_(null)
         )
