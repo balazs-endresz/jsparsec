@@ -164,7 +164,7 @@ function buildExpressionParser(operators, simpleExpr){
         var rassocOp   = choice(rassoc),
             lassocOp   = choice(lassoc),
             nassocOp   = choice(nassoc),
-            prefixOp   = label(choice(prefix), ""),
+            prefixOp   = label(choice(prefix) , ""),
             postfixOp  = label(choice(postfix), "");
             
         var ambigiousRight = ambigious("right", rassocOp),
@@ -183,7 +183,7 @@ function buildExpressionParser(operators, simpleExpr){
             ("pre"  ,"<-", prefixP)
             ("x"    ,"<-", term)
             ("post" ,"<-", postfixP)
-            (ret, function(scope){ return scope.post(scope.pre(scope.x)) }).resolve();
+            (ret, function(scope){ return scope.post(scope.pre(scope.x)) })
         
         
 //              rassocP x  = do{ f <- rassocOp

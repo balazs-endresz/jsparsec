@@ -26,38 +26,76 @@
 //import Data.Char(chr)
 //import Data.Char
 
+/*
 
-var error = id; //TODO
+Changes to the original code:
+ * added octal number parser
+ * added automatic semicolon insertion for throw and return
+ * parseScript: sepBy1 is used instead of sepBy
 
-function readHex(str){
-    return parseInt(str.join ? str.join("") : str, 16);
-}
+TODO:
+ * throw should be followed by an expression (on the same line), so
+   "throw;" or "throw \n error;" is not allowed, see `onSameLine1`
+ * automatic semicolon insertion in expressions
+   e.g this is not parsed correctly:
+        //var a = 10, b = 3;
+        a
+        ++b
+   expected : [VarRef "a", PrefixInc (VarRef "b")]
+   actual: [PostfixInc (VarRef "a"), VarRef "b"]
+
+*/
+
+var parseListExpr   = lazy(function(){ return parseListExpr   });
+var parseStatement  = lazy(function(){ return parseStatement  });
+var parseParenExpr  = lazy(function(){ return parseParenExpr  });
+var parseNewExpr    = lazy(function(){ return parseNewExpr    });
+var parseExpression = lazy(function(){ return parseExpression });
+var assignExpr = parseExpression;
+
 
 //chr.fst.head.readHex
 function toUnicodeString(charArrayOrStr){
-    var nums = charArrayOrStr.join ? charArrayOrStr.join("") : charArrayOrStr;
-    return String.fromCharCode(parseInt(nums, 16));
+    return chr(readHex(charArrayOrStr));
+    //var nums = charArrayOrStr.join ? charArrayOrStr.join("") : charArrayOrStr;
+    //return String.fromCharCode(parseInt(nums, 16));
 }
 
 //\fst snd -> (chr.fst.head.readHex) (fst:snd:"")
 function toAsciiString(fst, snd){
-    return String.fromCharCode(parseInt("" + fst + snd, 16));
+    return chr(readHex("" + fst + snd));
+    //return String.fromCharCode(parseInt("" + fst + snd, 16));
 }
 
-var round = Math.round;
-
-var getPosition = getParserState;
-
-function sourceLine(pos, state){
-    var m = state.input.substring(0, pos).match(/(\r\n)|(\n\r)|\r|\n/g);
-    return m ? m.length : 0;
+function onSameLine(pos0, pos1, parser){
+    return function(state, scope, k){
+        return ((state.sourceLine(scope[pos0]) == state.sourceLine(scope[pos1])) ? 
+                parserPlus(liftM(Maybe.Just, parser), return_(Maybe.Nothing)) :
+                return_(Maybe.Nothing))
+            (state, scope, k);
+    }
 }
+
+//this is used with parseThrowStmt,
+//but the error message appears in the beginning of the enclosing statement
+//if followed by a semicolon, else if there's a new line it's skipped entirely!
+function onSameLine1(pos0, pos1, parser){
+    return function(state, scope, k){
+        return ((state.sourceLine(scope[pos0]) == state.sourceLine(scope[pos1])) ? 
+                parser :
+                unexpected("end of line"))
+            (state, scope, k);
+    }
+}
+
+
+
 
 //-- We parameterize the parse tree over source-locations.
 //type ParsedStatement = Statement SourcePos
 //type ParsedExpression = Expression SourcePos
-//
-//
+
+
 //-- These parsers can store some arbitrary state
 //type StatementParser state = CharParser state ParsedStatement
 //type ExpressionParser state = CharParser state ParsedExpression
@@ -65,15 +103,6 @@ function sourceLine(pos, state){
 //identifier =
 //  liftM2 Id getPosition Lexer.identifier
 var identifier = liftM2(Id.Id, getPosition, lex.identifier);
-
-
-
-var parseListExpr   = lazy(function(){ return parseListExpr   })
-var parseStatement  = lazy(function(){ return parseStatement  })
-var parseParenExpr  = lazy(function(){ return parseParenExpr  })
-var parseExpression = lazy(function(){ return parseExpression })
-var assignExpr = parseExpression;
-var parseNewExpr    = lazy(function(){ return parseNewExpr    })
 
 
 //--{{{ Statements
@@ -217,11 +246,7 @@ var parseContinueStmt = cs
   (lex.reserved, "continue")
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'continue.'
-  ("id"   ,"<-", function(state, scope, k){
-    return ((sourceLine(scope.pos, state) == sourceLine(scope.pos_, state)) ? 
-            parserPlus(liftM(Maybe.Just, identifier), return_(Maybe.Nothing)) :
-            return_(Maybe.Nothing))(state, scope, k);
-  })
+  ("id"   ,"<-", onSameLine("pos", "pos_", identifier))
   (returnCall, Statement.ContinueStmt, "pos", "id")
 
 
@@ -241,11 +266,7 @@ var parseBreakStmt = cs
   (lex.reserved, "break")
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'break.')
-  ("id"   ,"<-", function(state, scope, k){
-    return ((sourceLine(scope.pos, state) == sourceLine(scope.pos_, state)) ? 
-            parserPlus(liftM(Maybe.Just, identifier), return_(Maybe.Nothing)) :
-            return_(Maybe.Nothing))(state, scope, k);
-  })
+  ("id"   ,"<-", onSameLine("pos", "pos_", identifier))
   (optional, lex.semi)
   (returnCall, Statement.BreakStmt, "pos", "id")
 
@@ -333,8 +354,8 @@ var parseForInStmt = cs
 //  init <- (reservedOp "=" >> liftM Just parseExpression) <|> (return Nothing)
 //  return (VarDecl pos id init)
 var parseVarDecl = cs
-  ("pos" ,"<-", getPosition)
-  ("id" ,"<-", identifier)
+  ("pos"  ,"<-", getPosition)
+  ("id"   ,"<-", identifier)
   ("init" ,"<-", [lex.reservedOp("=") ,">>", liftM, Maybe.Just, parseExpression]
                   ,"<|>", return_(Maybe.Nothing))
   (returnCall, VarDecl.VarDecl, "pos", "id", "init")
@@ -378,7 +399,7 @@ var _parseInit2 = ex(
   );
   
 var parseForStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "for")
   (lex.reservedOp("("))
   ("init" ,"<-", _parseInit2)
@@ -430,9 +451,10 @@ var parseTryStmt =cs
 //  optional semi
 //  return (ThrowStmt pos expr)
 var parseThrowStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "throw")
-  ("expr" ,"<-", parseExpression)
+  ("pos_" ,"<-", getPosition)
+  ("expr" ,"<-", onSameLine1("pos", "pos_", parseExpression))
   (optional, lex.semi)
   (returnCall, Statement.ThrowStmt, "pos", "expr")
 
@@ -445,9 +467,10 @@ var parseThrowStmt = cs
 //  optional semi
 //  return (ReturnStmt pos expr)
 var parseReturnStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "return")
-  ("expr" ,"<-", [liftM, Maybe.Just, parseListExpr] ,"<|>", return_(Maybe.Nothing))
+  ("pos_" ,"<-", getPosition)
+  ("expr" ,"<-", onSameLine("pos", "pos_", parseListExpr))
   (optional, lex.semi)
   (returnCall, Statement.ReturnStmt, "pos", "expr")
 
@@ -460,10 +483,10 @@ var parseReturnStmt = cs
 //  stmt <- parseStatement
 //  return (WithStmt pos context stmt)
 var parseWithStmt = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"     ,"<-", getPosition)
   (lex.reserved, "with")
   ("context" ,"<-", parseParenExpr)
-  ("stmt" ,"<-", parseStatement)
+  ("stmt"    ,"<-", parseStatement)
   (returnCall, Statement.WithStmt, "pos", "context", "stmt")
 
 
@@ -510,7 +533,8 @@ parseStatement = ex(
     // labelled, expression and the error message always go last, in this order
     ,"<|>", parseLabelledStmt 
     ,"<|>", parseExpressionStmt
-    ,"<?>", "statement");
+    ,"<?>", "statement"
+);
 
 //--{{{ Expressions
 
@@ -588,7 +612,7 @@ var parseArrayLit = liftM2(Expression.ArrayLit, getPosition, lex.squares(sepEndB
 //  body <- parseBlockStmt
 //  return $ FuncExpr pos name args body
 var parseFuncExpr = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"  ,"<-", getPosition)
   (lex.reserved, "function")
   ("name" ,"<-", [identifier, ">>=", return_ ,".", Maybe.Just] ,"<|>", return_, Maybe.Nothing)
   ("args" ,"<-", lex.parens, [identifier ,op(sepBy), lex.comma])
@@ -677,7 +701,7 @@ function parseStringLit_(endWith){
         (ret, function(scope){ return "'" + scope.cs })
     ] ,"<|>",
     [cs (char_('\\'))
-        ("c" ,"<-", parseEscapeChar ,"<|>", parseAsciiHexChar ,"<|>", parseUnicodeHexChar ,"<|>",
+        ("c"  ,"<-", parseEscapeChar ,"<|>", parseAsciiHexChar ,"<|>", parseUnicodeHexChar ,"<|>",
                      char_('\r') ,"<|>", char_('\n'))
         ("cs" ,"<-", lazyParseStringLit_(endWith))
         (ret, function(scope){
@@ -749,16 +773,16 @@ var parseChar = noneOf("/");
 var _parseRe = function(state, scope, k){ return parseRe(state, scope, k) }
 var parseRe = ex([char_('/') ,">>", return_, ""] ,"<|>", 
   cs (char_('\\'))
-     ("ch" ,"<-", anyChar) // TOOD: too lenient
+     ("ch"   ,"<-", anyChar) // TOOD: too lenient
      ("rest" ,"<-", _parseRe)
      (ret, function(scope){ return '\\' + scope.ch + scope.rest }) ,"<|>",
   [liftM2, cons, anyChar, _parseRe]
 );
 
 var parseRegexpLit = cs
-  ("pos" ,"<-", getPosition)
+  ("pos"   ,"<-", getPosition)
   (char_('/'))
-  ("pat" ,"<-", parseRe) //many1 parseChar
+  ("pat"   ,"<-", parseRe) //many1 parseChar
   ("flags" ,"<-", parseFlags)
   (spaces) // crucial for Parsec.Token parsers
   (ret, function(scope){
@@ -798,7 +822,7 @@ var _parseProp = cs
   (ret, function(scope){ return [scope.name, scope.val] })
   
 var parseObjectLit =
-  cs("pos" ,"<-", getPosition)
+  cs("pos"   ,"<-", getPosition)
     ("props" ,"<-", lex.braces, [_parseProp ,op(sepEndBy), lex.comma] ,"<?>", "object literal")
     (returnCall, Expression.ObjectLit, "pos", "props")
 
@@ -812,8 +836,17 @@ var parseObjectLit =
 var hexLit = cs
   (try_, string("0x"))
   ("digits" ,"<-", many1, oneOf("0123456789abcdefABCDEF"))
-  ("hex" ,"<-", returnCall, readHex, "digits")
+  ("hex"    ,"<-", returnCall, readHex, "digits")
   (ret, function(scope){ return [true, scope.hex] })
+
+
+var octLit = cs
+  ("digits" ,"<-", try_ ,"$",
+            [char_('0') ,">>", [many1, oneOf("01234567") ,"<|>", return_("0")] ]
+            ,"<*", notFollowedBy, oneOf("89")
+  )
+  ("oct"    ,"<-", returnCall, readOct, "digits")
+  (ret, function(scope){ return [true, scope.oct] })
 
 
 //-- Creates a decimal value from a whole, fractional and exponent part.
@@ -823,6 +856,7 @@ var hexLit = cs
 //    then mkDecimal w (f / 10.0) e
 //    else (w + f) * (10.0 ^^ e)
 function mkDecimal(w, f, e){
+  //return parseFloat(w + "." + f) * Math.pow(10.0, e);
   return (f >= 1.0) ?
     mkDecimal(w, f / 10.0, e) :
     (w + f) * Math.pow(10.0, e);
@@ -864,17 +898,17 @@ var decLit = ex(cs
   ("mexp"  ,"<-", option, Maybe.Nothing, [jparser, exponentPart])
   (ret, function(scope){
    return (scope.mfrac == Maybe.Nothing && scope.mexp == Maybe.Nothing) ?
-            [true, fromIntegral(scope.whole)] :
-            [false, mkDecimal(fromIntegral(scope.whole),
-                              fromIntegral(maybe(0, id, scope.mfrac)),
-                              fromIntegral(maybe(0, id, scope.mexp))
+            [true, scope.whole] :
+            [false, mkDecimal(scope.whole,
+                              maybe(0, id, scope.mfrac),
+                              maybe(0, id, scope.mexp)
                               )];
   })
   ,"<|>", cs
   ("frac" ,"<-", char_('.') ,">>", lex.decimal)
-  ("exp" ,"<-", option, 0, exponentPart)
+  ("exp"  ,"<-", option, 0, exponentPart)
   (ret, function(scope){
-    return [false, mkDecimal(0.0, fromIntegral(scope.frac), fromIntegral(scope.exp))];
+    return [false, mkDecimal(0.0, scope.frac, scope.exp)];
   })
 );
 
@@ -888,7 +922,7 @@ var decLit = ex(cs
 //      else return $ NumLit pos num
 var parseNumLit = cs
   ("pos" ,"<-", getPosition)
-  ("isint_num" ,"<-", lex.lexeme ,"$", hexLit ,"<|>", decLit)
+  ("isint_num" ,"<-", lex.lexeme ,"$", hexLit ,"<|>", octLit ,"<|>", decLit)
   (notFollowedBy, identifierStart ,"<?>", "whitespace")
   (ret, function(scope){
     var isint = scope.isint_num[0];
@@ -918,24 +952,24 @@ function withPos(cstr, p){
 
 //dotRef e = (reservedOp "." >> withPos cstr identifier) <?> "property.ref"
 //    where cstr pos key = DotRef pos e key
-//
-//funcApp e = (parens $ withPos cstr (parseExpression `sepBy` comma)) <?> "(function application)"
-//    where cstr pos args = CallExpr pos e args
-//
-//bracketRef e = (brackets $ withPos cstr parseExpression) <?> "[property-ref]"
-//    where cstr pos key = BracketRef pos e key
 function dotRef(e){
     function cstr(pos, key){ return Expression.DotRef(pos, e, key) }
     return ex([lex.reservedOp(".") ,">>", withPos, cstr, identifier]
             ,"<?>", "property.ref");
 }
 
+
+//funcApp e = (parens $ withPos cstr (parseExpression `sepBy` comma)) <?> "(function application)"
+//    where cstr pos args = CallExpr pos e args
 function funcApp(e){
     function cstr(pos, args){ return Expression.CallExpr(pos, e, args) }   
     return ex([lex.parens ,"$", withPos, cstr, [parseExpression ,op(sepBy), lex.comma]]
             ,"<?>", "(function application)");
 }
 
+
+//bracketRef e = (brackets $ withPos cstr parseExpression) <?> "[property-ref]"
+//    where cstr pos key = BracketRef pos e key
 function bracketRef(e){
     function cstr(pos, key){ return Expression.BracketRef(pos, e, key) }
     return ex([lex.brackets ,"$", withPos, cstr, parseExpression]
@@ -954,9 +988,19 @@ parseParenExpr = withPos(Expression.ParenExpr, lex.parens(parseListExpr));
 //parseExprForNew = parseThisRef <|> parseNullLit <|> parseBoolLit <|> parseStringLit 
 //  <|> parseArrayLit <|> parseParenExpr <|> parseNewExpr <|> parseNumLit 
 //  <|> parseRegexpLit <|> parseObjectLit <|> parseVarRef
-var parseExprForNew = ex(parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit ,"<|>", parseStringLit 
-  ,"<|>", parseArrayLit ,"<|>", parseParenExpr ,"<|>", parseNewExpr ,"<|>", parseNumLit
-  ,"<|>", parseRegexpLit ,"<|>", parseObjectLit ,"<|>", parseVarRef);
+var parseExprForNew = ex(
+            parseThisRef
+    ,"<|>", parseNullLit
+    ,"<|>", parseBoolLit
+    ,"<|>", parseStringLit 
+    ,"<|>", parseArrayLit
+    ,"<|>", parseParenExpr
+    ,"<|>", parseNewExpr
+    ,"<|>", parseNumLit
+    ,"<|>", parseRegexpLit
+    ,"<|>", parseObjectLit
+    ,"<|>", parseVarRef
+);
   
 
 //-- all the expression parsers defined above
@@ -964,10 +1008,19 @@ var parseExprForNew = ex(parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit 
 //  <|> parseStringLit <|> parseArrayLit <|> parseParenExpr
 //  <|> parseFuncExpr <|> parseNumLit <|> parseRegexpLit <|> parseObjectLit
 //  <|> parseVarRef
-var parseSimpleExpr_ = ex(parseThisRef ,"<|>", parseNullLit ,"<|>", parseBoolLit 
-  ,"<|>", parseStringLit ,"<|>", parseArrayLit ,"<|>", parseParenExpr
-  ,"<|>", parseFuncExpr ,"<|>", parseNumLit ,"<|>", parseRegexpLit ,"<|>", parseObjectLit
-  ,"<|>", parseVarRef);
+var parseSimpleExpr_ = ex(
+            parseThisRef
+    ,"<|>", parseNullLit
+    ,"<|>", parseBoolLit 
+    ,"<|>", parseStringLit
+    ,"<|>", parseArrayLit
+    ,"<|>", parseParenExpr
+    ,"<|>", parseFuncExpr
+    ,"<|>", parseNumLit
+    ,"<|>", parseRegexpLit
+    ,"<|>", parseObjectLit
+    ,"<|>", parseVarRef
+);
 
 //parseSimpleExprForNew (Just e) = (do
 //    e' <- dotRef e <|> bracketRef e
@@ -986,7 +1039,7 @@ function parseSimpleExprForNew(maybeVal){
     }
     if(maybeVal.Nothing){
         return cs
-            ("e" ,"<-", parseNewExpr ,"<?>", "expression (3)")
+            ("e"  ,"<-", parseNewExpr ,"<?>", "expression (3)")
             (function(state, scope, k){
                 return parseSimpleExprForNew(Maybe.Just(scope.e))(state, scope, k);
             })
@@ -1073,15 +1126,16 @@ function makeInfixExpr(str, constr){
 //      return (PrefixExpr pos op innerExpr)
 var parsePrefixedExpr = cs
   ("pos" ,"<-", getPosition)
-  ("op" ,"<-", optionMaybe ,"$", [lex.reservedOp("!") ,">>", return_, PrefixOp.PrefixLNot] ,"<|>",
-                      [lex.reservedOp("~") ,">>", return_, PrefixOp.PrefixBNot] ,"<|>",
-                      [try_, [lex.lexeme ,"$", char_('-') ,">>", notFollowedBy, char_('-')] ,">>",
-                       return_, PrefixOp.PrefixMinus] ,"<|>",
-                      [try_, [lex.lexeme ,"$", char_('+') ,">>", notFollowedBy, char_('+')] ,">>",
-                       return_, PrefixOp.PrefixPlus] ,"<|>",
-                      [lex.reserved, "typeof" ,">>", return_, PrefixOp.PrefixTypeof] ,"<|>",
-                      [lex.reserved, "void" ,">>", return_, PrefixOp.PrefixVoid] ,"<|>",
-                      [lex.reserved, "delete" ,">>", return_, PrefixOp.PrefixDelete]
+  ("op"  ,"<-", optionMaybe ,"$",
+                        [lex.reservedOp("!")    ,">>", return_, PrefixOp.PrefixLNot]
+                ,"<|>", [lex.reservedOp("~")    ,">>", return_, PrefixOp.PrefixBNot]
+                ,"<|>", [try_, [lex.lexeme ,"$", char_('-') ,">>", notFollowedBy, char_('-')]
+                                                ,">>", return_, PrefixOp.PrefixMinus]
+                ,"<|>", [try_, [lex.lexeme ,"$", char_('+') ,">>", notFollowedBy, char_('+')]
+                                                ,">>", return_, PrefixOp.PrefixPlus]
+                ,"<|>", [lex.reserved, "typeof" ,">>", return_, PrefixOp.PrefixTypeof]
+                ,"<|>", [lex.reserved, "void"   ,">>", return_, PrefixOp.PrefixVoid]
+                ,"<|>", [lex.reserved, "delete" ,">>", return_, PrefixOp.PrefixDelete]
   )
   (function(state, scope, k){
     var op = scope.op, res;
@@ -1255,7 +1309,7 @@ var parseTernaryExpr_ = cs
 //    Just (l,r) -> do p <- getPosition
 //                     return $ CondExpr p e l r
 var parseTernaryExpr = cs
-  ("e" ,"<-", parseExpression_)
+  ("e"  ,"<-", parseExpression_)
   ("e_" ,"<-", optionMaybe, parseTernaryExpr_)
   (function(state, scope, k){
     var e_ = scope.e_,
@@ -1288,18 +1342,18 @@ var parseTernaryExpr = cs
 //  (reservedOp "^=" >> return OpAssignBXor) <|>
 //  (reservedOp "|=" >> return OpAssignBOr)
 var assignOp = ex(
-  [lex.reservedOp("=")   ,">>", return_, AssignOp.OpAssign     ] ,"<|>",
-  [lex.reservedOp("+=")  ,">>", return_, AssignOp.OpAssignAdd  ] ,"<|>",
-  [lex.reservedOp("-=")  ,">>", return_, AssignOp.OpAssignSub  ] ,"<|>",
-  [lex.reservedOp("*=")  ,">>", return_, AssignOp.OpAssignMul  ] ,"<|>",
-  [lex.reservedOp("/=")  ,">>", return_, AssignOp.OpAssignDiv  ] ,"<|>",
-  [lex.reservedOp("%=")  ,">>", return_, AssignOp.OpAssignMod  ] ,"<|>",
-  [lex.reservedOp("<<=") ,">>", return_, AssignOp.OpAssignLShift   ] ,"<|>",
-  [lex.reservedOp(">>=") ,">>", return_, AssignOp.OpAssignSpRShift ] ,"<|>",
-  [lex.reservedOp(">>>="),">>", return_, AssignOp.OpAssignZfRShift ] ,"<|>",
-  [lex.reservedOp("&=")  ,">>", return_, AssignOp.OpAssignBAnd ] ,"<|>",
-  [lex.reservedOp("^=")  ,">>", return_, AssignOp.OpAssignBXor ] ,"<|>",
-  [lex.reservedOp("|=")  ,">>", return_, AssignOp.OpAssignBOr  ]
+            [lex.reservedOp("=")   ,">>", return_, AssignOp.OpAssign     ]
+    ,"<|>", [lex.reservedOp("+=")  ,">>", return_, AssignOp.OpAssignAdd  ]
+    ,"<|>", [lex.reservedOp("-=")  ,">>", return_, AssignOp.OpAssignSub  ]
+    ,"<|>", [lex.reservedOp("*=")  ,">>", return_, AssignOp.OpAssignMul  ]
+    ,"<|>", [lex.reservedOp("/=")  ,">>", return_, AssignOp.OpAssignDiv  ]
+    ,"<|>", [lex.reservedOp("%=")  ,">>", return_, AssignOp.OpAssignMod  ]
+    ,"<|>", [lex.reservedOp("<<=") ,">>", return_, AssignOp.OpAssignLShift   ]
+    ,"<|>", [lex.reservedOp(">>=") ,">>", return_, AssignOp.OpAssignSpRShift ]
+    ,"<|>", [lex.reservedOp(">>>="),">>", return_, AssignOp.OpAssignZfRShift ]
+    ,"<|>", [lex.reservedOp("&=")  ,">>", return_, AssignOp.OpAssignBAnd ]
+    ,"<|>", [lex.reservedOp("^=")  ,">>", return_, AssignOp.OpAssignBXor ]
+    ,"<|>", [lex.reservedOp("|=")  ,">>", return_, AssignOp.OpAssignBOr  ]
 );
 
 //assignExpr :: ExpressionParser st
@@ -1340,7 +1394,7 @@ parseListExpr =
 //  liftM2 Script getPosition (parseStatement `sepBy` whiteSpace)
 var parseScript = cs
   (lex.whiteSpace)
-  (liftM2, JavaScript.Script, getPosition, [parseStatement ,op(sepBy), lex.whiteSpace])
+  (liftM2, JavaScript.Script, getPosition, [parseStatement ,op(sepBy1), lex.whiteSpace])
   
 
 //parseJavaScriptFromFile :: MonadIO m => String -> m [Statement SourcePos]
@@ -1355,17 +1409,30 @@ var parseScript = cs
 //                      -> Either ParseError (JavaScript SourcePos)
 //parseScriptFromString src script = parse parseScript src script
 
-//function parseScriptFromString(src, script){
-//    return parse(parseScript, src, script);
-//}
-
 
 //emptyParsedJavaScript = 
 //  Script (error "Parser.emptyParsedJavaScript--no annotation") []
-var emptyParsedJavaScript = 
-  JavaScript.Script(error("Parser.emptyParsedJavaScript--no annotation"), []);
+  
   
 //parseString :: String -> [Statement SourcePos]
 //parseString str = case parse parseScript "" str of
 //  Left err -> error (show err)
 //  Right (Script _ stmts) -> stmts
+
+
+JSParsec.JavaScript = {
+     parseScript            : parseScript
+    ,parseExpression        : parseExpression
+    //,parseString            : parseString
+    //,parseScriptFromString  : parseScriptFromString
+    //,emptyParsedJavaScript  : emptyParsedJavaScript
+    //,ParsedStatement        : ParsedStatement
+    //,ParsedExpression       : ParsedExpression
+    //,parseJavaScriptFromFile: parseJavaScriptFromFile
+    ,parseSimpleExpr_       : parseSimpleExpr_
+    ,parseBlockStmt         : parseBlockStmt
+    ,parseStatement         : parseStatement
+    //,StatementParser        : StatementParser
+    //,ExpressionParser       : ExpressionParser
+    ,assignExpr             : assignExpr
+};

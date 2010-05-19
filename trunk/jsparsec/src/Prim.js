@@ -84,6 +84,11 @@ ParseState.prototype = {
 
         p[index] = cached;
     }
+    
+    ,sourceLine: function(pos){
+        var m = this.input.substring(0, pos).match(/(\r\n)|\r|\n/g);
+        return m ? m.length : 0;
+    }
 
     /*
 
@@ -142,12 +147,19 @@ function _fail(expecting){
 }
 
 
-//accepts an identifier string, see usage with notFollowedBy
 function unexpected(name){
+    return function(state, scope, k){
+        return k(make_result(null, false, {unexpected: name}));
+    };
+}
+
+//accepts an identifier string, see usage with notFollowedBy
+function unexpectedIdent(name){
     return function(state, scope, k){
         return k(make_result(null, false, {unexpected: scope[name]}));
     };
 }
+
 
 function parserFail(msg){
     return function(state, scope, k){
@@ -297,7 +309,7 @@ function bind(name, p){
             if(result.success)
                 scope[name] = result.ast;
             result = extend({}, result);
-            delete result.ast;
+            
             return k(result);
         }]};
     };
@@ -344,16 +356,21 @@ function withBound(fn){
 
 var returnCall = compose(ret, withBound);
 
-function getParserState(state, scope, k){
+function getPosition(state, scope, k){
     return k(make_result(state.index));
 }
 
-function setParserState(id){
+var getParserState = getPosition; //TODO?
+
+function setPosition(id){
+    var type = typeof id;
     return function(state, scope, k){
-        state.scrollTo(scope[id]);
+        state.scrollTo(type == "string" ? scope[id] : id);
         return k(_EmptyOk);
     };
 }
+
+var setParserState = setPosition; //TODO?
 
 //in contrast with Haskell here's no closure in the do_ notation,
 //it's simulated with `bind` and `ret`,
@@ -424,13 +441,14 @@ function parserPlus(p1, p2){
             }
             
             handleError(result);
-            
-            return (result.ast !== undefined) ?
-                {func:k, args: [result]} :
-                {func: p2, args: [state, scope, function(result){
+            if(result.ast !== undef)
+                return {func:k, args: [result]};
+            else
+                return {func: p2, args: [state, scope, function(result){
                     handleError(result);
                     return k(result);
                 }]};
+            
         }]};
     }
     fn.constructor = Parser;
@@ -486,7 +504,9 @@ function tokens(parsers){
             var result = extend({}, _result);
             result.ast = ast;
             if(result.success)
-                delete result.expecting;                    
+                delete result.expecting;
+            else
+                delete result.ast;
             return k(result);
         }]};
     };
@@ -576,10 +596,12 @@ function tokenPrimP1(fn){
 
 
 var try_ = tokenPrimP1(function(_, result, state, startIndex){
+    result = extend({}, result);
     if(result.success)
         return result;
     state.scrollTo(startIndex);
-    return _fail(result.expecting);
+    delete result.ast;
+    return result;
 });
 
 
@@ -803,6 +825,8 @@ extend(JSParsec, {
     withBound       : withBound,
     returnCall      : returnCall,
     lazy            : lazy,
+    getPosition     : getPosition,
+    setPosition     : setPosition,
     getParserState  : getParserState,
     setParserState  : setParserState,
     tokens          : tokens,
