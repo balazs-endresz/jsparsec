@@ -9,7 +9,7 @@ var undef,
 function curry(fn){
   function ret(){
     var args = slice(arguments);
-    return args.length >= (fn._length === undefined ? fn.length : fn._length) ? fn.apply(null, args) : 
+    return args.length >= (fn._length === undef ? fn.length : fn._length) ? fn.apply(null, args) : 
       function(){
         return ret.apply( null, args.concat(slice(arguments)) );
       };
@@ -101,13 +101,9 @@ function zip(arr1, arr2){
 }
 
 function sort(arr) {
-    var type = typeof arr;
-
-    if(type == "object")
+    if(arr.sort)
         return arr.sort();
-
-    if(type == "string")
-        return slice(arr).sort().join("");
+    return slice(arr).sort().join("");
 }
 
 //-- | The 'nub' function removes duplicate elements from a list.
@@ -259,9 +255,8 @@ function isOctDigit(c){
 
 
 function digitToInt(c){
-    if(!isHexDigit(c))
-        throw "Data.Char.digitToInt: not a digit " + c;
-
+    //if(!isHexDigit(c))
+    //    throw "Data.Char.digitToInt: not a digit " + c;
     return parseInt(c, 16);
 }
 

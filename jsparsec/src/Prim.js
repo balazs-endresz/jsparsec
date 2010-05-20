@@ -505,8 +505,6 @@ function tokens(parsers){
             result.ast = ast;
             if(result.success)
                 delete result.expecting;
-            else
-                delete result.ast;
             return k(result);
         }]};
     };
@@ -538,7 +536,9 @@ function _many(onePlusMatch){
                 result.success = !onePlusMatch || (matchedOne && onePlusMatch);
                 result.ast = ast;
                 if(result.success)
-                    delete result.expecting;                    
+                    delete result.expecting;
+                else
+                    result.ast = undef;
                 return k(result);
             }]};
         };
@@ -600,7 +600,7 @@ var try_ = tokenPrimP1(function(_, result, state, startIndex){
     if(result.success)
         return result;
     state.scrollTo(startIndex);
-    delete result.ast;
+    result.ast = undef;
     return result;
 });
 
@@ -638,8 +638,8 @@ var satisfy = tokenPrim(function(cond, state){
 //string :: String -> Parser
 var string = function(s){ //TODO
     return tokenPrimP1(function(_, result, state, startIndex){
-        result.ast = result.ast.join("");
         result = extend({}, result);
+        result.ast = result.ast.join("");
         if(!result.success)
             result.expecting = {at:startIndex, expecting: s};
         else delete result.expecting;
