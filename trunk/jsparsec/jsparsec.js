@@ -29,7 +29,7 @@ var undef,
 function curry(fn){
   function ret(){
     var args = slice(arguments);
-    return args.length >= (fn._length === undefined ? fn.length : fn._length) ? fn.apply(null, args) : 
+    return args.length >= (fn._length === undef ? fn.length : fn._length) ? fn.apply(null, args) : 
       function(){
         return ret.apply( null, args.concat(slice(arguments)) );
       };
@@ -121,13 +121,9 @@ function zip(arr1, arr2){
 }
 
 function sort(arr) {
-    var type = typeof arr;
-
-    if(type == "object")
+    if(arr.sort)
         return arr.sort();
-
-    if(type == "string")
-        return slice(arr).sort().join("");
+    return slice(arr).sort().join("");
 }
 
 //-- | The 'nub' function removes duplicate elements from a list.
@@ -279,9 +275,8 @@ function isOctDigit(c){
 
 
 function digitToInt(c){
-    if(!isHexDigit(c))
-        throw "Data.Char.digitToInt: not a digit " + c;
-
+    //if(!isHexDigit(c))
+    //    throw "Data.Char.digitToInt: not a digit " + c;
     return parseInt(c, 16);
 }
 
@@ -1370,8 +1365,6 @@ function tokens(parsers){
             result.ast = ast;
             if(result.success)
                 delete result.expecting;
-            else
-                delete result.ast;
             return k(result);
         }]};
     };
@@ -1403,7 +1396,9 @@ function _many(onePlusMatch){
                 result.success = !onePlusMatch || (matchedOne && onePlusMatch);
                 result.ast = ast;
                 if(result.success)
-                    delete result.expecting;                    
+                    delete result.expecting;
+                else
+                    result.ast = undef;
                 return k(result);
             }]};
         };
@@ -1465,7 +1460,7 @@ var try_ = tokenPrimP1(function(_, result, state, startIndex){
     if(result.success)
         return result;
     state.scrollTo(startIndex);
-    delete result.ast;
+    result.ast = undef;
     return result;
 });
 
@@ -1503,8 +1498,8 @@ var satisfy = tokenPrim(function(cond, state){
 //string :: String -> Parser
 var string = function(s){ //TODO
     return tokenPrimP1(function(_, result, state, startIndex){
-        result.ast = result.ast.join("");
         result = extend({}, result);
+        result.ast = result.ast.join("");
         if(!result.success)
             result.expecting = {at:startIndex, expecting: s};
         else delete result.expecting;
