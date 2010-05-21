@@ -242,7 +242,7 @@ function processError(e, s, i, unexp){
             line = linecount - restlc + 1,
             lindex = index - lines.splice(0,line-1).join("\n").length,
             unexpMsg = unexp || s.input.substr(index, e.length).substr(0, 6);
-        return 'Unexpected "' + (unexpMsg.length ? unexpMsg : "end of file") +  
+        return 'Unexpected "' + (unexpMsg.length ? unexpMsg : "end of input") +  
                 (unexp ? "" : ('", expecting "' + e)) + 
                 '" at line ' + line + ' char ' + lindex;
     }
@@ -274,13 +274,14 @@ function parserBind(p, f){
 var do2 = function(p1, p2){
     function fn(state, scope, k){
         return { func: p1, args: [state, scope, function(result){
-            return result.success ? p2(state, scope, k) : k(result);
+            return result.success ? p2(state, scope, k) : k(result); //TODO: p2
         }]};
     }
     fn.constructor = Parser;
     return fn;
 };
 
+//TODO: foldl
 var do_ = function(p1, p2, p3 /* ... */){
     var parsers = map(toParser, arguments);
     function fn(state, _scope, k){
@@ -785,7 +786,7 @@ extend(operators, {
 
 function lazy(f){
     return function(state, scope, k){
-        return f()(state, scope, k);
+        return f(scope)(state, scope, k);
     }
 }
 
