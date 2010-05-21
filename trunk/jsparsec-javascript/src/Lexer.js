@@ -47,18 +47,19 @@ var javascriptDef = GenLanguageDef.LanguageDef(record,
                , opStart         : oneOf("{}<>()~.,?:|&^=!+-*/%!")
                , opLetter        : oneOf("=<>|&+")
                , reservedOpNames : [
+                 "|=", "^=", "&=", "<<=", ">>=", ">>>=", "+=", "-=", "*=", "/=", 
+                 "%=", "=", ";", ",", "?", ":", "||", "&&", "|", "^", "&", 
+                 "===", "==", "=", "!==", "!=", "<<", "<=", "<", ">>>", ">>", 
+                 ">=", ">", "++", "--", "+", "-", "*", "/", "%", "!", "~", ".", 
+                 "[", "]", "{", "}", "(", ")"
+                 ,"instanceof", "in" //TODO: are these needed here?
+                 ]
+               , reservedNames   : [
                  "break", "case", "catch", "const", "continue", "debugger", 
                  "default", "delete", "do", "else", "enum", "false", "finally",
                  "for", "function", "if", "instanceof", "in", "let", "new", 
                  "null", "return", "switch", "this", "throw", "true", "try", 
                  "typeof", "var", "void", "while", "with"
-                 ]
-               , reservedNames   : [
-                 "|=", "^=", "&=", "<<=", ">>=", ">>>=", "+=", "-=", "*=", "/=", 
-                 "%=", "=", ";", ",", "?", ":", "||", "&&", "|", "^", "&", 
-                 "===", "==", "=", "!==", "!=", "<<", "<=", "<", ">>>", ">>", 
-                 ">=", ">", "++", "--", "+", "-", "*", "/", "%", "!", "~", ".", 
-                 "[", "]", "{", "}", "(", ")","</","instanceof"
                  ]
                , caseSensitive   : true
                });

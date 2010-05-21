@@ -249,9 +249,9 @@ function unId(idVal){
 
 function InfixOp(){}
 data(InfixOp, [
-    "OpLT", "OpLEq", "OpGT", "OpGEq ", "OpIn ", "OpInstanceof", "OpEq", "OpNEq",
+    "OpLT", "OpLEq", "OpGT", "OpGEq", "OpIn", "OpInstanceof", "OpEq", "OpNEq",
     "OpStrictEq", "OpStrictNEq", "OpLAnd", "OpLOr",
-    "OpMul", "OpDiv", "OpMod ", "OpSub", "OpLShift", "OpSpRShift",
+    "OpMul", "OpDiv", "OpMod", "OpSub", "OpLShift", "OpSpRShift",
     "OpZfRShift", "OpBAnd", "OpBXor", "OpBOr", "OpAdd"
 ]);
 
@@ -535,18 +535,19 @@ var javascriptDef = GenLanguageDef.LanguageDef(record,
                , opStart         : oneOf("{}<>()~.,?:|&^=!+-*/%!")
                , opLetter        : oneOf("=<>|&+")
                , reservedOpNames : [
+                 "|=", "^=", "&=", "<<=", ">>=", ">>>=", "+=", "-=", "*=", "/=", 
+                 "%=", "=", ";", ",", "?", ":", "||", "&&", "|", "^", "&", 
+                 "===", "==", "=", "!==", "!=", "<<", "<=", "<", ">>>", ">>", 
+                 ">=", ">", "++", "--", "+", "-", "*", "/", "%", "!", "~", ".", 
+                 "[", "]", "{", "}", "(", ")"
+                 ,"instanceof", "in" //TODO: are these needed here?
+                 ]
+               , reservedNames   : [
                  "break", "case", "catch", "const", "continue", "debugger", 
                  "default", "delete", "do", "else", "enum", "false", "finally",
                  "for", "function", "if", "instanceof", "in", "let", "new", 
                  "null", "return", "switch", "this", "throw", "true", "try", 
                  "typeof", "var", "void", "while", "with"
-                 ]
-               , reservedNames   : [
-                 "|=", "^=", "&=", "<<=", ">>=", ">>>=", "+=", "-=", "*=", "/=", 
-                 "%=", "=", ";", ",", "?", ":", "||", "&&", "|", "^", "&", 
-                 "===", "==", "=", "!==", "!=", "<<", "<=", "<", ">>>", ">>", 
-                 ">=", ">", "++", "--", "+", "-", "*", "/", "%", "!", "~", ".", 
-                 "[", "]", "{", "}", "(", ")","</","instanceof"
                  ]
                , caseSensitive   : true
                });
@@ -612,22 +613,29 @@ var lex = makeTokenParser(javascriptDef);
 
 /*
 
+The parser treats multiline comments as new lines,
+so semicolons might be automatically inserted there.
+
 Changes to the original code:
  * added octal number parser
  * added automatic semicolon insertion for throw and return
  * parseScript: sepBy1 is used instead of sepBy
+ * Lexer: reservedOpNames and reservedNames was switched,
+   removed "</" and added "in" (since "instanceof" was already there)
+ * removed optional semicolon in if-statement
 
 TODO:
  * throw should be followed by an expression (on the same line), so
    "throw;" or "throw \n error;" is not allowed, see `onSameLine1`
- * automatic semicolon insertion in expressions
+ * automatic semicolon insertion before prefix ++ or -- preceeded by a newline
    e.g this is not parsed correctly:
         //var a = 10, b = 3;
         a
         ++b
    expected : [VarRef "a", PrefixInc (VarRef "b")]
    actual: [PostfixInc (VarRef "a"), VarRef "b"]
-
+ * future reserved names (?)  
+   
 */
 
 var parseListExpr   = lazy(function(){ return parseListExpr   });
@@ -717,12 +725,14 @@ var parseIfStmt = cs
   (lex.reserved, "if")
   ("test" ,"<-", parseParenExpr ,"<?>", "parenthesized test-expression in if statement")
   ("consequent" ,"<-", parseStatement ,"<?>", "true-branch of if statement")
-  (optional, lex.semi) //-- TODO: in spec?
+  //the empty statement matches a single semi, but one more would be 
+  //a syntax error if it's followed by `else`
+  //(optional, lex.semi) //-- TODO: in spec?
   (   cs(lex.reserved, "else")
         ("alternate" ,"<-", parseStatement)
         (ret, function(scope){
             return Statement.IfStmt(scope.scope.pos, scope.scope.test,
-                        scope.scope.consequent, scope.alternate);
+                                    scope.scope.consequent, scope.alternate);
         })
     ,"<|>", returnCall(Statement.IfSingleStmt, "pos", "test", "consequent")
   )
@@ -830,7 +840,7 @@ var parseContinueStmt = cs
   (lex.reserved, "continue")
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'continue.'
-  ("id"   ,"<-", onSameLine("pos", "pos_", identifier))
+  ("id"   ,"<-", onSameLine, "pos", "pos_", identifier)
   (returnCall, Statement.ContinueStmt, "pos", "id")
 
 
@@ -850,7 +860,7 @@ var parseBreakStmt = cs
   (lex.reserved, "break")
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'break.')
-  ("id"   ,"<-", onSameLine("pos", "pos_", identifier))
+  ("id"   ,"<-", onSameLine, "pos", "pos_", identifier)
   (optional, lex.semi)
   (returnCall, Statement.BreakStmt, "pos", "id")
 
@@ -1038,7 +1048,7 @@ var parseThrowStmt = cs
   ("pos"  ,"<-", getPosition)
   (lex.reserved, "throw")
   ("pos_" ,"<-", getPosition)
-  ("expr" ,"<-", onSameLine1("pos", "pos_", parseExpression))
+  ("expr" ,"<-", onSameLine1, "pos", "pos_", parseExpression)
   (optional, lex.semi)
   (returnCall, Statement.ThrowStmt, "pos", "expr")
 
@@ -1054,7 +1064,7 @@ var parseReturnStmt = cs
   ("pos"  ,"<-", getPosition)
   (lex.reserved, "return")
   ("pos_" ,"<-", getPosition)
-  ("expr" ,"<-", onSameLine("pos", "pos_", parseListExpr))
+  ("expr" ,"<-", onSameLine, "pos", "pos_", parseListExpr)
   (optional, lex.semi)
   (returnCall, Statement.ReturnStmt, "pos", "expr")
 
@@ -1840,27 +1850,29 @@ function hook(fn, ident){
     };
 }
 
+function _createExpr(pos, ctr){
+    return function(lval){
+        return Expression.UnaryAssignExpr(pos, UnaryAssignOp[ctr], lval)
+    }
+}
+
 var unaryAssignExpr = cs
   ("p" ,"<-", getPosition)
   ("prefixInc"  ,"<-", ret, function(scope){ return cs
                     (lex.reservedOp("++"))
-                    (liftM, [Expression.UnaryAssignExpr, scope.p, UnaryAssignOp.PrefixInc], lvalue)
+                    (liftM, _createExpr(scope.p, "PrefixInc"), lvalue)
   })
   ("prefixDec"  ,"<-", ret, function(scope){ return cs
                     (lex.reservedOp("--"))
-                    (liftM, [Expression.UnaryAssignExpr, scope.p, UnaryAssignOp.PrefixDec], lvalue)
+                    (liftM, _createExpr(scope.p, "PrefixDec"), lvalue)
   })
   ("postfixInc" ,"<-", ret, function(scope){ return function(e){ return cs
                     (lex.reservedOp("++"))
-                    (liftM, function(lVal){
-                        return Expression.UnaryAssignExpr(scope.p, UnaryAssignOp.PostfixInc, lVal)
-                    }, [asLValue, scope.p, e])
+                    (liftM, _createExpr(scope.p, "PostfixInc"), asLValue(scope.p, e))
   }})
   ("postfixDec" ,"<-", ret, function(scope){ return function(e){ return cs
                     (lex.reservedOp("--"))
-                    (liftM, function(lVal){
-                        return Expression.UnaryAssignExpr(scope.p, UnaryAssignOp.PostfixDec, lVal)
-                    }, [asLValue, scope.p, e])
+                    (liftM, _createExpr(scope.p, "PostfixDec"), asLValue(scope.p, e))
   }})
   ("other"      ,"<-", ret, function(scope){ return cs
                     ("e" ,"<-", parseSimpleExpr, Maybe.Nothing)
@@ -1954,11 +1966,13 @@ assignExpr = cs
   ("p"   ,"<-", getPosition)
   ("lhs" ,"<-", parseTernaryExpr)
   (cs("op"  ,"<-", assignOp)
-     ("lhs" ,"<-", function(state, scope, k){
-        return asLValue(scope.scope.p, scope.scope.lhs)(state, scope, k);
+     ("lhs" ,"<-", lazy, function(scope){
+        //bring p to the current scope, so that returnCall can be used:
+        scope.p = scope.scope.p;
+        return asLValue(scope.scope.p, scope.scope.lhs);
      })
-     ("rhs" ,"<-", lazy(function(){ return assignExpr }))
-     (ret, function(scope){ return Expression.AssignExpr(scope.scope.p, scope.op, scope.lhs, scope.rhs) })
+     ("rhs" ,"<-", lazy, function(){ return assignExpr })
+     (returnCall, Expression.AssignExpr, "p", "op", "lhs", "rhs")
   ,"<|>", ret, "lhs")
 
 

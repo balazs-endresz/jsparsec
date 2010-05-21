@@ -94,9 +94,9 @@ function optional(p){
 //                    = do{ open; x <- p; close; return x }
 //
 
-var between = curry(function(open, close, p){
+function between(open, close, p){
     return do_(open, bind("x", p), close, ret("x"));
-});
+};
 
 
 //-- | @skipMany1 p@ applies the parser @p@ /one/ or more times, skipping
@@ -311,11 +311,7 @@ function chainl(p, op, x){
 //
 
 function chainl1(p, op){
-    var scan =  do_( 
-                    bind("x", p), 
-                    function(state, scope, k){ return rest(scope.x)(state, scope, k) }
-                );
-
+    
     function rest(x){ 
         var a = do_(
                     bind("f", op),
@@ -327,7 +323,7 @@ function chainl1(p, op){
         return parserPlus(a, return_(x));
     }
 
-    return scan;
+    return parserBind(p, rest);
 }
 
 
@@ -349,22 +345,20 @@ function chainl1(p, op){
 //
 
 function chainr1(p, op){
-    var scan =  do_( 
-                    bind("x", p), 
-                    function(state, scope, k){ return rest(scope.x)(state, scope, k) }
-                );
-
+    
     function rest(x){ 
         var a = do_(
                     bind("f", op),
                     bind("y", scan),
-                    function(state, scope, k){
-                        return k(make_result(scope.f(x, scope.y)));
-                    }
+                    ret(function(scope){
+                        return scope.f(x, scope.y);
+                    })
                 );
         return parserPlus(a, return_(x));
     }
-
+    
+    var scan = parserBind(p, rest);
+    
     return scan;
 }
 
@@ -427,6 +421,7 @@ function eof(state, scope, k){
 //                          )
 //
 
+/*
 function notFollowedBy(p){
     return try_(
         parserPlus(
@@ -437,6 +432,15 @@ function notFollowedBy(p){
             return_(null)
         )
     );
+}
+*/
+
+//since `show c` is not necessary, so we can simplify it:
+function notFollowedBy(p){
+    return try_(parserPlus(
+            parserBind(try_(p), unexpected),
+            return_(null)
+    ));
 }
 
 

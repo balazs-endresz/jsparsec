@@ -488,10 +488,10 @@ var startEnd = nub( slice( languageDef.commentEnd + languageDef.commentStart ) )
 function _inCommentSingle(state, scope, k){ return inCommentSingle(state, scope, k) }
 
 var inCommentSingle
-            = [ do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
+            = ex( do_( try_ (string ( languageDef.commentEnd )) , return_(null) )
         ,"<|>", do_( skipMany1(noneOf (startEnd))          , _inCommentSingle )
         ,"<|>", do_( oneOf(startEnd)                       , _inCommentSingle )
-        ,"<?>", "end of comment"]
+        ,"<?>", "end of comment")
 
 
 
@@ -636,8 +636,8 @@ var ascii3          = ['\NUL','\SOH','\STX','\ETX','\EOT','\ENQ','\ACK',
 //  escMap          = zip ("abfnrtv\\\"\'") ("\a\b\f\n\r\t\v\\\"\'")
 //  asciiMap        = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
 
-var escMap          = zip("abfnrtv\\\"\'", "\a\b\f\n\r\t\v\\\"\'");
-var asciiMap        = zip((ascii3codes + ascii2codes), (ascii3 + ascii2));
+var escMap          = zip(slice("abfnrtv\\\"\'"), slice("\a\b\f\n\r\t\v\\\"\'"));
+var asciiMap        = zip(ascii3codes.concat(ascii2codes), ascii3.concat(ascii2));
 
 //
 //  charEsc         = choice (map parseEsc escMap)
@@ -664,7 +664,9 @@ function parseAscii(tuple){
 
 //  stringLetter    = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
 
-var stringLetter    = satisfy(function(c){ return (c != '"') && (c != '\\') && (c > '\026') }); //TODO: last expr.
+var stringLetter    = satisfy(function(c){
+                            return (c != '"') && (c != '\\') && (c > '\026');
+                      });
 
 
 //  escapeEmpty     = char '&'
@@ -713,13 +715,15 @@ var escapeCode      = ex(charEsc ,"<|>", charNum ,"<|>", charAscii ,"<|>", charC
 
 //  charEscape      = do{ char '\\'; escapeCode }
 
-var charEscape        = do_(char_('\\'), escapeCode);
+var charEscape      = do_(char_('\\'), escapeCode);
 
 
 
 //  charLetter      = satisfy (\c -> (c /= '\'') && (c /= '\\') && (c > '\026'))
 
-var charLetter      = satisfy(function(c){ return (c != '\'') && (c != '\\') && (c > '\026') }); //TODO: last expr.
+var charLetter      = satisfy(function(c){
+                            return (c != '\'') && (c != '\\') && (c > '\026');
+                      });
 
 
 //
@@ -749,9 +753,10 @@ var charLiteral     = ex(lexeme, [between, char_('\''),
 //                      }
 
 var stringEscape    = cs( char_('\\') )
-                        (         cs( escapeGap   ) ( return_, Maybe.Nothing )
-                          ,"<|>", cs( escapeEmpty ) ( return_, Maybe.Nothing )
-                          ,"<|>", cs( "esc" ,"<-", escapeCode) ( returnCall, Maybe.Just, "esc" )
+                        (         do_( escapeGap,   return_(Maybe.Nothing) )
+                          ,"<|>", do_( escapeEmpty, return_(Maybe.Nothing) )
+                          ,"<|>", cs ( "esc" ,"<-", escapeCode)
+                                     ( returnCall, Maybe.Just, "esc" )
                         )
 
 
@@ -760,7 +765,7 @@ var stringEscape    = cs( char_('\\') )
 //                  <?> "string character"
 
 var stringChar      = ex(cs( "c" ,"<-", stringLetter )
-                         ( returnCall, Maybe.Just, "c" )
+                           ( returnCall, Maybe.Just, "c" )
                       ,"<|>", stringEscape
                       ,"<?>", "string character");
 
@@ -1004,7 +1009,7 @@ var natural         = [lexeme, nat        ,"<?>", "natural"].resolve();
 //        }
 
 function reservedOp(name){
-    return ex(lexeme ,"$", try_ ,"$",
+    return ex(lexeme ,"$", try_,
                 cs( string(name) ) 
                   ( notFollowedBy, languageDef.opLetter ,"<?>", "end of " + name )
             );
@@ -1042,12 +1047,15 @@ function isReservedOp(name){
 //        }
 
 var operator =
-        ex(lexeme ,"$", try_ ,"$",
+        ex(lexeme ,"$", try_,
             cs( "name" ,"<-", oper )
-            ( function(state, scope, k){
+              ( function(state, scope, k){
                     return (isReservedOp(scope.name) ? 
-                        unexpected("reserved operator " + scope.name) : return_(scope.name) )(state, scope, k);
-          }));
+                        unexpected("reserved operator " + scope.name) :
+                        return_(scope.name) )
+                    (state, scope, k);
+              })
+        );
 
 
 
@@ -1095,7 +1103,7 @@ function caseString(name){
 //        }
 
 function reserved(name){
-    return ex(lexeme ,"$", try_ ,"$",
+    return ex(lexeme ,"$", try_,
               cs( caseString(name) )
                 ( notFollowedBy, languageDef.identLetter ,"<?>", "end of " + name )
             );
@@ -1163,7 +1171,7 @@ function isReservedName(name){
 //        }
 
 var identifier =
-        ex(lexeme ,"$", try_ ,"$",
+        ex(lexeme ,"$", try_,
             cs( "name" ,"<-", ident )
               ( function(state, scope, k){
                     return ( isReservedName(scope.name) ? 

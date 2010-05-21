@@ -48,9 +48,9 @@ function unId(idVal){
 
 function InfixOp(){}
 data(InfixOp, [
-    "OpLT", "OpLEq", "OpGT", "OpGEq ", "OpIn ", "OpInstanceof", "OpEq", "OpNEq",
+    "OpLT", "OpLEq", "OpGT", "OpGEq", "OpIn", "OpInstanceof", "OpEq", "OpNEq",
     "OpStrictEq", "OpStrictNEq", "OpLAnd", "OpLOr",
-    "OpMul", "OpDiv", "OpMod ", "OpSub", "OpLShift", "OpSpRShift",
+    "OpMul", "OpDiv", "OpMod", "OpSub", "OpLShift", "OpSpRShift",
     "OpZfRShift", "OpBAnd", "OpBXor", "OpBOr", "OpAdd"
 ]);
 
