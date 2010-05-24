@@ -630,11 +630,11 @@ Changes to the original code:
    actual: [VarRef "a", PrefixInc (VarRef "b")]
    original: [PostfixInc (VarRef "a"), VarRef "b"]
  * ASI with multiline comments is not consistent
+ * optinal semicolons have been replaced with autoEndStmt:
+   instead of optional(lex.semi) it checks the consumed(!) whitespace for a
+   newline, if there's none then for a semi, closing brace, or eof
    
 TODO:
- * not just new lines or semicolons can separate statements but any whitespace!
-   instead of optional(lex.semi) -> check consumed(!) whitespace for newline
-   if there's none then for a semi, closing brace, or eof
  * throw should be followed by an expression (on the same line), i.e.
    "throw;" or "throw \n error;" is not allowed, see `onSameLine1`
  * future reserved names (?)
@@ -693,6 +693,27 @@ function onSameLine1(pos0, pos1, parser){
     }
 }
 
+
+function autoEndStmt(state, scope, k){
+    var ws = state.input.substring(0, state.index - state.dropped).match(/\s*$/),
+        ended = ws && /\n|\r/.test(ws[0]),
+        semi;
+        
+    if(!ended){
+        var nextChar = state.at(0);
+        if(nextChar == "" || nextChar == "}"){
+            ended = true;
+        }else if(nextChar == ";"){
+            ended = true;
+            semi = true;
+        }
+    }
+    
+    return (ended ?
+                (semi ? lex.semi : return_(null)) :
+                fail("end of statement"))
+        (state, scope, k);
+}
 
 
 
@@ -834,7 +855,7 @@ var parseDoWhileStmt = cs
   ("body" ,"<-", parseBlockStmt)
   (lex.reserved, "while" ,"<?>", "while at the end of a do block")
   ("test" ,"<-", parseParenExpr ,"<?>", "parenthesized test-expression in do loop")
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.DoWhileStmt, "pos", "body", "test")
 
 
@@ -854,7 +875,7 @@ var parseContinueStmt = cs
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'continue.'
   ("id"   ,"<-", onSameLine, "pos", "pos_", identifier)
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.ContinueStmt, "pos", "id")
 
 
@@ -875,7 +896,7 @@ var parseBreakStmt = cs
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'break.'
   ("id"   ,"<-", onSameLine, "pos", "pos_", identifier)
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.BreakStmt, "pos", "id")
 
 
@@ -921,7 +942,7 @@ var parseLabelledStmt = cs
 var parseExpressionStmt = cs
   ("pos"  ,"<-", getPosition)
   ("expr" ,"<-", parseListExpr) // TODO: spec 12.4?
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.ExprStmt, "pos", "expr")
 
 
@@ -980,7 +1001,7 @@ var parseVarDeclStmt = cs
   ("pos" ,"<-", getPosition)
   (lex.reserved, "var")
   ("decls" ,"<-", parseVarDecl, op(sepBy), lex.comma)
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.VarDeclStmt, "pos",  "decls")
 
 //parseForStmt:: StatementParser st
@@ -1063,7 +1084,7 @@ var parseThrowStmt = cs
   (lex.reserved, "throw")
   ("pos_" ,"<-", getPosition)
   ("expr" ,"<-", onSameLine1, "pos", "pos_", parseExpression)
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.ThrowStmt, "pos", "expr")
 
 
@@ -1079,7 +1100,7 @@ var parseReturnStmt = cs
   (lex.reserved, "return")
   ("pos_" ,"<-", getPosition)
   ("expr" ,"<-", onSameLine, "pos", "pos_", parseListExpr)
-  (optional, lex.semi)
+  (autoEndStmt)
   (returnCall, Statement.ReturnStmt, "pos", "expr")
 
 
@@ -1867,12 +1888,10 @@ function _createExpr(pos, ctr){
 
 function onSameLineExp(postfix, notpostfix){
     return function(state, scope, k){
-        var input = state.input,
-            index = state.index,
-            op = input.substring(index, index + 2);
+        var op = state.substring(0, 2);
             
         if(op == "--" || op == "++"){
-            var m = input.substring(0, index).match(/\s*$/);
+            var m = state.input.substring(0, state.index - state.dropped).match(/\s*$/);
             var autosemi = m && /\n|\r/.test(m[0]);
             return (autosemi ? notpostfix : postfix)(state, scope, k);
         }else

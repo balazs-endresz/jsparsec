@@ -885,7 +885,8 @@ ParseState.prototype = {
         this.length -= index;
         return this;
     },
-
+    
+    dropped: 0, //TODO: cut input periodically if there's no try_
 
     at: function(index){
         return this.input.charAt(this.index + index);
