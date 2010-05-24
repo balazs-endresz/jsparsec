@@ -28,28 +28,41 @@
 
 /*
 
-The parser treats multiline comments as new lines,
-so semicolons might be automatically inserted there.
-
 Changes to the original code:
- * added octal number parser
- * added automatic semicolon insertion for throw and return
- * parseScript: sepBy1 is used instead of sepBy
+ * added octal number parser (octLit, parseNumLit)
+ * parseScript: parseStatement `sepBy` whitespace -> many(parseStatement)
+   statements consume all trailing whitespace
  * Lexer: reservedOpNames and reservedNames was switched,
    removed "</" and added "in" (since "instanceof" was already there)
- * removed optional semicolon in if-statement
-
-TODO:
- * throw should be followed by an expression (on the same line), so
-   "throw;" or "throw \n error;" is not allowed, see `onSameLine1`
- * automatic semicolon insertion before prefix ++ or -- preceeded by a newline
-   e.g this is not parsed correctly:
+ * parseIfStmt: removed optional semicolon
+ * parseContinueStmt: added optional semicolon
+ * added automatic semicolon insertion for throw and return
+ * unaryAssignExpr: added automatic semicolon insertion
+   before prefix ++ or -- preceeded by a newline:
         //var a = 10, b = 3;
         a
         ++b
-   expected : [VarRef "a", PrefixInc (VarRef "b")]
-   actual: [PostfixInc (VarRef "a"), VarRef "b"]
- * future reserved names (?)  
+   actual: [VarRef "a", PrefixInc (VarRef "b")]
+   original: [PostfixInc (VarRef "a"), VarRef "b"]
+ * ASI with multiline comments is not consistent
+   
+TODO:
+ * not just new lines or semicolons can separate statements but any whitespace!
+   instead of optional(lex.semi) -> check consumed(!) whitespace for newline
+   if there's none then for a semi, closing brace, or eof
+ * throw should be followed by an expression (on the same line), i.e.
+   "throw;" or "throw \n error;" is not allowed, see `onSameLine1`
+ * future reserved names (?)
+ * function declaration in blocks (implementation dependent)
+    if(true)
+        function f(){} 
+   function expressions without name as statements
+    function(){}    //Syntax error
+    (function(){})  //OK
+   ExpressionStatements cannot start with "function" or "{" (spec 12.4)
+   FunctionDeclaration as Statements (spec 12.0)
+   add SourceElement: Statement or  FunctionDeclaration
+   add FunctionBody: SourceElements
    
 */
 
@@ -256,6 +269,7 @@ var parseContinueStmt = cs
   ("pos_" ,"<-", getPosition)
   // Ensure that the identifier is on the same line as 'continue.'
   ("id"   ,"<-", onSameLine, "pos", "pos_", identifier)
+  (optional, lex.semi)
   (returnCall, Statement.ContinueStmt, "pos", "id")
 
 
@@ -274,7 +288,7 @@ var parseBreakStmt = cs
   ("pos"  ,"<-", getPosition)
   (lex.reserved, "break")
   ("pos_" ,"<-", getPosition)
-  // Ensure that the identifier is on the same line as 'break.')
+  // Ensure that the identifier is on the same line as 'break.'
   ("id"   ,"<-", onSameLine, "pos", "pos_", identifier)
   (optional, lex.semi)
   (returnCall, Statement.BreakStmt, "pos", "id")
@@ -1259,11 +1273,6 @@ var lvalue = cs
 //        e <- parseSimpleExpr Nothing
 //        postfixInc e <|> postfixDec e <|> return e
 //  prefixInc <|> prefixDec <|> other
-function hook(fn, ident){
-    return function(state, scope, k){
-        return fn(scope[ident])(state, scope, k);
-    };
-}
 
 function _createExpr(pos, ctr){
     return function(lval){
@@ -1271,30 +1280,58 @@ function _createExpr(pos, ctr){
     }
 }
 
-var unaryAssignExpr = cs
-  ("p" ,"<-", getPosition)
-  ("prefixInc"  ,"<-", ret, function(scope){ return cs
-                    (lex.reservedOp("++"))
-                    (liftM, _createExpr(scope.p, "PrefixInc"), lvalue)
-  })
-  ("prefixDec"  ,"<-", ret, function(scope){ return cs
-                    (lex.reservedOp("--"))
-                    (liftM, _createExpr(scope.p, "PrefixDec"), lvalue)
-  })
-  ("postfixInc" ,"<-", ret, function(scope){ return function(e){ return cs
-                    (lex.reservedOp("++"))
-                    (liftM, _createExpr(scope.p, "PostfixInc"), asLValue(scope.p, e))
-  }})
-  ("postfixDec" ,"<-", ret, function(scope){ return function(e){ return cs
-                    (lex.reservedOp("--"))
-                    (liftM, _createExpr(scope.p, "PostfixDec"), asLValue(scope.p, e))
-  }})
-  ("other"      ,"<-", ret, function(scope){ return cs
-                    ("e" ,"<-", parseSimpleExpr, Maybe.Nothing)
-                    (hook, scope.postfixInc, "e" ,"<|>",
-                     hook, scope.postfixDec, "e" ,"<|>", ret, "e")
-  })
-  (hook, id, "prefixInc" ,"<|>", hook, id, "prefixDec" ,"<|>", hook, id, "other")
+function onSameLineExp(postfix, notpostfix){
+    return function(state, scope, k){
+        var input = state.input,
+            index = state.index,
+            op = input.substring(index, index + 2);
+            
+        if(op == "--" || op == "++"){
+            var m = input.substring(0, index).match(/\s*$/);
+            var autosemi = m && /\n|\r/.test(m[0]);
+            return (autosemi ? notpostfix : postfix)(state, scope, k);
+        }else
+            return notpostfix(state, scope, k);
+    }
+}
+
+var unaryAssignExpr = parserBind(getPosition, function(pos){
+    
+    var prefixInc = do_(lex.reservedOp("++"),
+                        liftM(_createExpr(pos, "PrefixInc"), lvalue));
+                    
+    var prefixDec = do_(lex.reservedOp("--"),
+                        liftM(_createExpr(pos, "PrefixDec"), lvalue));
+                    
+    function postfixInc(e){
+        return do_(lex.reservedOp("++"),
+                   liftM(_createExpr(pos, "PostfixInc"), asLValue(pos, e)));
+    }
+    
+    function postfixDec(e){
+        return do_(lex.reservedOp("--"),
+                   liftM(_createExpr(pos, "PostfixDec"), asLValue(pos, e)));
+    }
+    
+    //var other = parserBind(parseSimpleExpr(Maybe.Nothing), function(e){
+    //    return parserPlus(postfixInc(e), parserPlus(postfixDec(e), return_(e)));
+    //});
+    var postFix = parserBind(parseSimpleExpr(Maybe.Nothing), function(e){
+        return  onSameLineExp(
+                    //if ++ or -- is on the same line
+                    //then they are postfix operators
+                    parserPlus(postfixInc(e), parserPlus(postfixDec(e), return_(e))),
+                    //otherwise a semicolon is needed before the ops
+                    //so they will be consumed by the next parser,
+                    //and the current expression is returned
+                    return_(e)
+                )
+    });
+    
+    return parserPlus(prefixInc, parserPlus(prefixDec, postFix));
+  
+})
+
 
 //parseTernaryExpr':: CharParser st (ParsedExpression,ParsedExpression)
 //parseTernaryExpr' = do
@@ -1405,9 +1442,14 @@ parseListExpr =
 //parseScript = do
 //  whiteSpace
 //  liftM2 Script getPosition (parseStatement `sepBy` whiteSpace)
+/*
 var parseScript = cs
   (lex.whiteSpace)
   (liftM2, JavaScript.Script, getPosition, [parseStatement ,op(sepBy1), lex.whiteSpace])
+*/
+var parseScript = cs
+  (lex.whiteSpace)
+  (liftM2, JavaScript.Script, getPosition, many(parseStatement))
   
 
 //parseJavaScriptFromFile :: MonadIO m => String -> m [Statement SourcePos]
